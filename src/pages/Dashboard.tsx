@@ -165,17 +165,21 @@ export default function Dashboard() {
             </Button>
           </div>
         ) : (
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3" style={{ perspective: '1200px' }}>
             {classes.map((cls, index) => (
               <Link
                 key={cls.id}
                 to={`/class/${cls.id}`}
-                className="group block"
+                className="group block animate-flip-in"
+                style={{ animationDelay: `${index * 0.1}s` }}
               >
-                <div className="rounded-xl overflow-hidden bg-card border border-border shadow-sm hover:shadow-lg transition-all duration-300 hover:-translate-y-1">
+                <div 
+                  className="rounded-xl overflow-hidden bg-card border border-border shadow-sm transition-all duration-500 group-hover:[transform:perspective(1000px)_rotateY(5deg)_rotateX(-3deg)_translateZ(10px)] group-hover:shadow-2xl"
+                  style={{ transformStyle: 'preserve-3d' }}
+                >
                   {/* Color header */}
                   <div className={`h-24 ${colorPalette[index % colorPalette.length]} p-4 relative`}>
-                    <h3 className="text-lg font-serif font-bold text-primary-foreground line-clamp-2">
+                    <h3 className="text-lg font-serif font-bold text-primary-foreground line-clamp-2 group-hover:translate-x-1 transition-transform">
                       {cls.name}
                     </h3>
                     {profile?.role === 'teacher' && (
@@ -184,7 +188,7 @@ export default function Dashboard() {
                           e.preventDefault();
                           copyClassCode(cls.class_code);
                         }}
-                        className="absolute top-3 right-3 bg-primary-foreground/20 hover:bg-primary-foreground/30 backdrop-blur-sm rounded-lg px-3 py-1.5 flex items-center gap-1.5 text-xs font-medium text-primary-foreground transition-colors"
+                        className="absolute top-3 right-3 bg-primary-foreground/20 hover:bg-primary-foreground/30 backdrop-blur-sm rounded-lg px-3 py-1.5 flex items-center gap-1.5 text-xs font-medium text-primary-foreground transition-all hover:scale-110"
                       >
                         {copiedCode === cls.class_code ? (
                           <Check className="h-3.5 w-3.5" />
@@ -224,12 +228,13 @@ export default function Dashboard() {
             {/* Add new class card */}
             <Link
               to={profile?.role === 'teacher' ? '/class/new' : '/join-class'}
-              className="group flex flex-col items-center justify-center h-48 rounded-xl border-2 border-dashed border-border hover:border-primary/50 transition-colors bg-muted/30 hover:bg-muted/50"
+              className="group flex flex-col items-center justify-center h-48 rounded-xl border-2 border-dashed border-border hover:border-primary/50 transition-all duration-500 bg-muted/30 hover:bg-muted/50 animate-scale-3d hover:[transform:perspective(1000px)_translateZ(20px)]"
+              style={{ animationDelay: `${classes.length * 0.1}s`, transformStyle: 'preserve-3d' }}
             >
-              <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+              <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-3 group-hover:animate-bounce-3d transition-transform">
                 <Plus className="h-6 w-6 text-primary" />
               </div>
-              <span className="text-sm font-medium text-muted-foreground group-hover:text-foreground">
+              <span className="text-sm font-medium text-muted-foreground group-hover:text-foreground transition-colors">
                 {profile?.role === 'teacher' ? 'Create Class' : 'Join Class'}
               </span>
             </Link>
