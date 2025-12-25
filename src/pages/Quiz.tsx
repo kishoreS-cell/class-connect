@@ -1,5 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
-import { Helmet } from "react-helmet";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import AppLayout from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,80 +15,54 @@ interface Question {
   category: string;
 }
 
-const questions: Question[] = [
-  {
-    id: 1,
-    question: "What is the capital of France?",
-    options: ["London", "Berlin", "Paris", "Madrid"],
-    correctAnswer: 2,
-    category: "Geography"
-  },
-  {
-    id: 2,
-    question: "What is 15 × 12?",
-    options: ["170", "180", "190", "200"],
-    correctAnswer: 1,
-    category: "Math"
-  },
-  {
-    id: 3,
-    question: "Who wrote 'Romeo and Juliet'?",
-    options: ["Charles Dickens", "William Shakespeare", "Jane Austen", "Mark Twain"],
-    correctAnswer: 1,
-    category: "Literature"
-  },
-  {
-    id: 4,
-    question: "What is the chemical symbol for Gold?",
-    options: ["Go", "Gd", "Au", "Ag"],
-    correctAnswer: 2,
-    category: "Science"
-  },
-  {
-    id: 5,
-    question: "Which planet is known as the Red Planet?",
-    options: ["Venus", "Mars", "Jupiter", "Saturn"],
-    correctAnswer: 1,
-    category: "Science"
-  },
-  {
-    id: 6,
-    question: "What is the largest ocean on Earth?",
-    options: ["Atlantic", "Indian", "Arctic", "Pacific"],
-    correctAnswer: 3,
-    category: "Geography"
-  },
-  {
-    id: 7,
-    question: "What is 256 ÷ 16?",
-    options: ["14", "15", "16", "17"],
-    correctAnswer: 2,
-    category: "Math"
-  },
-  {
-    id: 8,
-    question: "Who painted the Mona Lisa?",
-    options: ["Van Gogh", "Picasso", "Leonardo da Vinci", "Michelangelo"],
-    correctAnswer: 2,
-    category: "Art"
-  },
-  {
-    id: 9,
-    question: "What is the powerhouse of the cell?",
-    options: ["Nucleus", "Ribosome", "Mitochondria", "Cytoplasm"],
-    correctAnswer: 2,
-    category: "Science"
-  },
-  {
-    id: 10,
-    question: "In which year did World War II end?",
-    options: ["1943", "1944", "1945", "1946"],
-    correctAnswer: 2,
-    category: "History"
-  }
+const allQuestions: Question[] = [
+  // Geography
+  { id: 1, question: "What is the capital of France?", options: ["London", "Berlin", "Paris", "Madrid"], correctAnswer: 2, category: "Geography" },
+  { id: 2, question: "What is the largest ocean on Earth?", options: ["Atlantic", "Indian", "Arctic", "Pacific"], correctAnswer: 3, category: "Geography" },
+  { id: 3, question: "Which country has the most population?", options: ["USA", "India", "China", "Russia"], correctAnswer: 2, category: "Geography" },
+  { id: 4, question: "What is the capital of Japan?", options: ["Seoul", "Beijing", "Tokyo", "Bangkok"], correctAnswer: 2, category: "Geography" },
+  { id: 5, question: "Which continent is the Sahara Desert located in?", options: ["Asia", "Africa", "Australia", "South America"], correctAnswer: 1, category: "Geography" },
+  
+  // Math
+  { id: 6, question: "What is 15 × 12?", options: ["170", "180", "190", "200"], correctAnswer: 1, category: "Math" },
+  { id: 7, question: "What is 256 ÷ 16?", options: ["14", "15", "16", "17"], correctAnswer: 2, category: "Math" },
+  { id: 8, question: "What is the square root of 144?", options: ["10", "11", "12", "13"], correctAnswer: 2, category: "Math" },
+  { id: 9, question: "What is 7 × 8?", options: ["54", "56", "58", "64"], correctAnswer: 1, category: "Math" },
+  { id: 10, question: "What is 1000 - 567?", options: ["433", "443", "453", "463"], correctAnswer: 0, category: "Math" },
+  
+  // Science
+  { id: 11, question: "What is the chemical symbol for Gold?", options: ["Go", "Gd", "Au", "Ag"], correctAnswer: 2, category: "Science" },
+  { id: 12, question: "Which planet is known as the Red Planet?", options: ["Venus", "Mars", "Jupiter", "Saturn"], correctAnswer: 1, category: "Science" },
+  { id: 13, question: "What is the powerhouse of the cell?", options: ["Nucleus", "Ribosome", "Mitochondria", "Cytoplasm"], correctAnswer: 2, category: "Science" },
+  { id: 14, question: "What gas do plants absorb from the atmosphere?", options: ["Oxygen", "Nitrogen", "Carbon Dioxide", "Hydrogen"], correctAnswer: 2, category: "Science" },
+  { id: 15, question: "How many bones are in the adult human body?", options: ["186", "196", "206", "216"], correctAnswer: 2, category: "Science" },
+  
+  // Literature
+  { id: 16, question: "Who wrote 'Romeo and Juliet'?", options: ["Charles Dickens", "William Shakespeare", "Jane Austen", "Mark Twain"], correctAnswer: 1, category: "Literature" },
+  { id: 17, question: "Who wrote 'Pride and Prejudice'?", options: ["Emily Brontë", "Jane Austen", "Charlotte Brontë", "Virginia Woolf"], correctAnswer: 1, category: "Literature" },
+  { id: 18, question: "Who is the author of 'Harry Potter'?", options: ["J.R.R. Tolkien", "C.S. Lewis", "J.K. Rowling", "Stephen King"], correctAnswer: 2, category: "Literature" },
+  
+  // History
+  { id: 19, question: "In which year did World War II end?", options: ["1943", "1944", "1945", "1946"], correctAnswer: 2, category: "History" },
+  { id: 20, question: "Who was the first President of the United States?", options: ["Thomas Jefferson", "John Adams", "George Washington", "Benjamin Franklin"], correctAnswer: 2, category: "History" },
+  { id: 21, question: "In which year did the Titanic sink?", options: ["1910", "1912", "1914", "1916"], correctAnswer: 1, category: "History" },
+  
+  // Art
+  { id: 22, question: "Who painted the Mona Lisa?", options: ["Van Gogh", "Picasso", "Leonardo da Vinci", "Michelangelo"], correctAnswer: 2, category: "Art" },
+  { id: 23, question: "Who painted 'Starry Night'?", options: ["Claude Monet", "Vincent van Gogh", "Pablo Picasso", "Salvador Dalí"], correctAnswer: 1, category: "Art" },
+  { id: 24, question: "Who sculpted 'David'?", options: ["Donatello", "Leonardo", "Michelangelo", "Raphael"], correctAnswer: 2, category: "Art" },
+  
+  // General Knowledge
+  { id: 25, question: "How many continents are there?", options: ["5", "6", "7", "8"], correctAnswer: 2, category: "General" },
+  { id: 26, question: "What is the largest mammal?", options: ["Elephant", "Blue Whale", "Giraffe", "Hippopotamus"], correctAnswer: 1, category: "General" },
+  { id: 27, question: "How many colors are in a rainbow?", options: ["5", "6", "7", "8"], correctAnswer: 2, category: "General" },
+  { id: 28, question: "What is the hardest natural substance?", options: ["Gold", "Iron", "Diamond", "Platinum"], correctAnswer: 2, category: "General" },
+  { id: 29, question: "How many days are in a leap year?", options: ["364", "365", "366", "367"], correctAnswer: 2, category: "General" },
+  { id: 30, question: "What is the smallest prime number?", options: ["0", "1", "2", "3"], correctAnswer: 2, category: "Math" },
 ];
 
 const TIMER_DURATION = 30;
+const QUESTIONS_PER_QUIZ = 10;
 
 const Quiz = () => {
   const [gameState, setGameState] = useState<"start" | "playing" | "result">("start");
@@ -101,13 +74,19 @@ const Quiz = () => {
   const [answers, setAnswers] = useState<{ questionId: number; correct: boolean }[]>([]);
   const [shuffledQuestions, setShuffledQuestions] = useState<Question[]>([]);
 
-  const shuffleQuestions = useCallback(() => {
-    const shuffled = [...questions].sort(() => Math.random() - 0.5);
-    setShuffledQuestions(shuffled);
-  }, []);
+  const shuffleArray = <T,>(array: T[]): T[] => {
+    const shuffled = [...array];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    return shuffled;
+  };
 
   const startQuiz = () => {
-    shuffleQuestions();
+    // Shuffle all questions and pick first N
+    const shuffled = shuffleArray(allQuestions).slice(0, QUESTIONS_PER_QUIZ);
+    setShuffledQuestions(shuffled);
     setGameState("playing");
     setCurrentQuestionIndex(0);
     setScore(0);
@@ -118,7 +97,7 @@ const Quiz = () => {
   };
 
   const handleAnswer = (answerIndex: number) => {
-    if (showResult) return;
+    if (showResult || shuffledQuestions.length === 0) return;
     
     setSelectedAnswer(answerIndex);
     setShowResult(true);
@@ -133,11 +112,11 @@ const Quiz = () => {
     setAnswers(prev => [...prev, { questionId: currentQuestion.id, correct: isCorrect }]);
 
     setTimeout(() => {
-      nextQuestion();
+      moveToNextQuestion();
     }, 1500);
   };
 
-  const nextQuestion = () => {
+  const moveToNextQuestion = useCallback(() => {
     if (currentQuestionIndex < shuffledQuestions.length - 1) {
       setCurrentQuestionIndex(prev => prev + 1);
       setTimeLeft(TIMER_DURATION);
@@ -146,27 +125,27 @@ const Quiz = () => {
     } else {
       setGameState("result");
     }
-  };
+  }, [currentQuestionIndex, shuffledQuestions.length]);
 
-  const timeOut = useCallback(() => {
-    if (!showResult) {
-      setShowResult(true);
-      const currentQuestion = shuffledQuestions[currentQuestionIndex];
-      setAnswers(prev => [...prev, { questionId: currentQuestion.id, correct: false }]);
-      
-      setTimeout(() => {
-        nextQuestion();
-      }, 1500);
-    }
-  }, [showResult, shuffledQuestions, currentQuestionIndex]);
+  const handleTimeOut = useCallback(() => {
+    if (showResult || shuffledQuestions.length === 0) return;
+    
+    setShowResult(true);
+    const currentQuestion = shuffledQuestions[currentQuestionIndex];
+    setAnswers(prev => [...prev, { questionId: currentQuestion.id, correct: false }]);
+    
+    setTimeout(() => {
+      moveToNextQuestion();
+    }, 1500);
+  }, [showResult, shuffledQuestions, currentQuestionIndex, moveToNextQuestion]);
 
   useEffect(() => {
-    if (gameState !== "playing" || showResult) return;
+    if (gameState !== "playing" || showResult || shuffledQuestions.length === 0) return;
 
     const timer = setInterval(() => {
       setTimeLeft(prev => {
         if (prev <= 1) {
-          timeOut();
+          handleTimeOut();
           return 0;
         }
         return prev - 1;
@@ -174,7 +153,7 @@ const Quiz = () => {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [gameState, showResult, timeOut]);
+  }, [gameState, showResult, shuffledQuestions.length, handleTimeOut]);
 
   const getTimerColor = () => {
     if (timeLeft > 20) return "bg-green-500";
@@ -183,6 +162,7 @@ const Quiz = () => {
   };
 
   const getScoreMessage = () => {
+    if (shuffledQuestions.length === 0) return "Quiz Complete!";
     const percentage = (score / shuffledQuestions.length) * 100;
     if (percentage === 100) return "Perfect Score! 🎉";
     if (percentage >= 80) return "Excellent Work! 🌟";
@@ -194,11 +174,6 @@ const Quiz = () => {
   if (gameState === "start") {
     return (
       <AppLayout>
-        <Helmet>
-          <title>Quiz Challenge | EduConnect</title>
-          <meta name="description" content="Test your knowledge with timed quiz questions" />
-        </Helmet>
-
         <div className="max-w-2xl mx-auto">
           <Card className="shadow-xl border-2 overflow-hidden">
             <div className="bg-gradient-to-br from-primary/20 to-primary/5 p-8">
@@ -208,7 +183,7 @@ const Quiz = () => {
                 </div>
                 <CardTitle className="text-3xl font-bold">Quiz Challenge</CardTitle>
                 <p className="text-muted-foreground text-lg">
-                  Test your knowledge with {questions.length} questions!
+                  Test your knowledge with {QUESTIONS_PER_QUIZ} random questions!
                 </p>
               </div>
             </div>
@@ -222,8 +197,8 @@ const Quiz = () => {
                 </div>
                 <div className="bg-secondary/50 rounded-xl p-4 text-center">
                   <Trophy className="w-8 h-8 mx-auto mb-2 text-primary" />
-                  <p className="font-semibold">{questions.length} questions</p>
-                  <p className="text-sm text-muted-foreground">to answer</p>
+                  <p className="font-semibold">{QUESTIONS_PER_QUIZ} questions</p>
+                  <p className="text-sm text-muted-foreground">from {allQuestions.length} total</p>
                 </div>
               </div>
               
@@ -244,10 +219,6 @@ const Quiz = () => {
   if (gameState === "result") {
     return (
       <AppLayout>
-        <Helmet>
-          <title>Quiz Results | EduConnect</title>
-        </Helmet>
-
         <div className="max-w-2xl mx-auto">
           <Card className="shadow-xl border-2 overflow-hidden">
             <div className="bg-gradient-to-br from-primary/20 to-primary/5 p-8">
@@ -301,14 +272,21 @@ const Quiz = () => {
     );
   }
 
+  // Playing state - ensure we have questions before rendering
+  if (shuffledQuestions.length === 0 || !shuffledQuestions[currentQuestionIndex]) {
+    return (
+      <AppLayout>
+        <div className="max-w-2xl mx-auto text-center py-12">
+          <p>Loading questions...</p>
+        </div>
+      </AppLayout>
+    );
+  }
+
   const currentQuestion = shuffledQuestions[currentQuestionIndex];
 
   return (
     <AppLayout>
-      <Helmet>
-        <title>Quiz - Question {currentQuestionIndex + 1} | EduConnect</title>
-      </Helmet>
-
       <div className="max-w-2xl mx-auto space-y-6">
         {/* Progress and Timer */}
         <div className="flex items-center justify-between gap-4">
@@ -331,7 +309,7 @@ const Quiz = () => {
         <Card className="shadow-xl border-2">
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
-              <Badge variant="secondary">{currentQuestion.category}</Badge>
+              <Badge variant="secondary" className="text-xs">{currentQuestion.category}</Badge>
             </div>
           </CardHeader>
           <CardContent className="space-y-6">
