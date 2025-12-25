@@ -475,6 +475,54 @@ export type Database = {
           },
         ]
       }
+      recorded_videos: {
+        Row: {
+          class_id: string
+          created_at: string
+          description: string | null
+          file_name: string
+          id: string
+          title: string
+          uploaded_by: string
+          video_url: string
+        }
+        Insert: {
+          class_id: string
+          created_at?: string
+          description?: string | null
+          file_name: string
+          id?: string
+          title: string
+          uploaded_by: string
+          video_url: string
+        }
+        Update: {
+          class_id?: string
+          created_at?: string
+          description?: string | null
+          file_name?: string
+          id?: string
+          title?: string
+          uploaded_by?: string
+          video_url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recorded_videos_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recorded_videos_uploaded_by_fkey"
+            columns: ["uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       reminders: {
         Row: {
           created_at: string
