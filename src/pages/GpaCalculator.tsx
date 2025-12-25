@@ -26,19 +26,14 @@ interface Semester {
 }
 
 const gradePoints: Record<string, number> = {
-  'A+': 4.0,
-  'A': 4.0,
-  'A-': 3.7,
-  'B+': 3.3,
-  'B': 3.0,
-  'B-': 2.7,
-  'C+': 2.3,
-  'C': 2.0,
-  'C-': 1.7,
-  'D+': 1.3,
-  'D': 1.0,
-  'D-': 0.7,
-  'F': 0.0,
+  'O': 10,
+  'A+': 9,
+  'A': 8,
+  'B+': 7,
+  'B': 6,
+  'C': 5,
+  'P': 4,
+  'F': 0,
 };
 
 const GpaCalculator = () => {
@@ -50,7 +45,7 @@ const GpaCalculator = () => {
     {
       id: '1',
       name: 'Semester 1',
-      courses: [{ id: '1', name: '', credits: 3, grade: 'A' }],
+      courses: [{ id: '1', name: '', credits: 3, grade: 'O' }],
       gpa: 0,
       totalCredits: 0,
     },
@@ -65,7 +60,7 @@ const GpaCalculator = () => {
             id: Date.now().toString(), 
             name: '', 
             credits: 3, 
-            grade: 'A' 
+            grade: 'O' 
           }],
         };
       }
@@ -105,7 +100,7 @@ const GpaCalculator = () => {
       {
         id: Date.now().toString(),
         name: `Semester ${semesters.length + 1}`,
-        courses: [{ id: Date.now().toString(), name: '', credits: 3, grade: 'A' }],
+        courses: [{ id: Date.now().toString(), name: '', credits: 3, grade: 'O' }],
         gpa: 0,
         totalCredits: 0,
       },
@@ -342,14 +337,14 @@ const GpaCalculator = () => {
         <Card className="mt-6">
           <CardHeader>
             <CardTitle className="text-lg">Grade Point Reference</CardTitle>
-            <CardDescription>Standard 4.0 grading scale</CardDescription>
+            <CardDescription>10-point grading scale</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-4 md:grid-cols-6 lg:grid-cols-13 gap-2">
+            <div className="grid grid-cols-4 md:grid-cols-8 gap-2">
               {Object.entries(gradePoints).map(([grade, points]) => (
-                <div key={grade} className="text-center p-2 bg-muted rounded-md">
-                  <div className="font-semibold">{grade}</div>
-                  <div className="text-sm text-muted-foreground">{points.toFixed(1)}</div>
+                <div key={grade} className="text-center p-3 bg-muted rounded-md">
+                  <div className="font-semibold text-lg">{grade}</div>
+                  <div className="text-sm text-muted-foreground">{points} points</div>
                 </div>
               ))}
             </div>
