@@ -2,6 +2,7 @@ import { ReactNode } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
+import { VoiceCommandButton } from '@/components/VoiceCommandButton';
 import { 
   BookOpen, 
   Home, 
@@ -65,6 +66,8 @@ export default function AppLayout({ children }: AppLayoutProps) {
 
           {/* Right side */}
           <div className="flex items-center gap-3">
+            <VoiceCommandButton />
+            
             {profile?.role === 'teacher' && (
               <Button
                 onClick={() => navigate('/class/new')}
