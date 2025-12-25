@@ -153,6 +153,7 @@ export default function Dashboard() {
   const [jobInterviews, setJobInterviews] = useState<JobInterview[]>([]);
   const [loadingJobs, setLoadingJobs] = useState(false);
   const [jobLocationFilter, setJobLocationFilter] = useState<string>('all');
+  const [jobRoleFilter, setJobRoleFilter] = useState<string>('all');
   const { toast } = useToast();
 
   useEffect(() => {
@@ -1054,9 +1055,22 @@ export default function Dashboard() {
             <CardTitle className="text-lg flex items-center gap-2">
               <Briefcase className="w-5 h-5 text-primary" />
               Upcoming Job Interviews
-              <div className="ml-auto flex items-center gap-2">
+              <div className="ml-auto flex items-center gap-2 flex-wrap">
+                <Select value={jobRoleFilter} onValueChange={setJobRoleFilter}>
+                  <SelectTrigger className="w-[130px] h-8 text-xs">
+                    <SelectValue placeholder="All Roles" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Roles</SelectItem>
+                    <SelectItem value="Teaching">Teaching</SelectItem>
+                    <SelectItem value="Technology">Technology</SelectItem>
+                    <SelectItem value="Administration">Administration</SelectItem>
+                    <SelectItem value="Research">Research</SelectItem>
+                    <SelectItem value="Entry-level">Entry-level</SelectItem>
+                  </SelectContent>
+                </Select>
                 <Select value={jobLocationFilter} onValueChange={setJobLocationFilter}>
-                  <SelectTrigger className="w-[140px] h-8 text-xs">
+                  <SelectTrigger className="w-[130px] h-8 text-xs">
                     <SelectValue placeholder="All Locations" />
                   </SelectTrigger>
                   <SelectContent>
@@ -1093,7 +1107,10 @@ export default function Dashboard() {
             ) : (
               <div className="grid gap-3 sm:grid-cols-2">
                 {jobInterviews
-                  .filter(job => jobLocationFilter === 'all' || job.country === jobLocationFilter)
+                  .filter(job => 
+                    (jobLocationFilter === 'all' || job.country === jobLocationFilter) &&
+                    (jobRoleFilter === 'all' || job.category === jobRoleFilter)
+                  )
                   .map((job) => (
                   <div
                     key={job.id}
