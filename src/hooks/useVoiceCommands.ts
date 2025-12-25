@@ -37,6 +37,10 @@ export const useVoiceCommands = () => {
       action: () => navigateRef.current?.('/dashboard'),
       description: 'Navigate to dashboard',
     },
+    navigate_notifications: {
+      action: () => navigateRef.current?.('/dashboard?tab=notifications'),
+      description: 'Go to notifications',
+    },
     create_class: {
       action: () => navigateRef.current?.('/create-class'),
       description: 'Create a new class',
@@ -59,7 +63,7 @@ export const useVoiceCommands = () => {
       action: () => {
         toastRef.current?.({
           title: '🎤 Voice Commands',
-          description: 'Say things like: "Go to dashboard", "Create a class", "Join a class", "Go home"',
+          description: 'Say: "Dashboard", "Notifications", "Create class", "Join class", "Go home"',
           duration: 5000,
         });
       },
@@ -110,6 +114,7 @@ export const useVoiceCommands = () => {
     
     const localCommands = [
       { keywords: ['dashboard', 'go to dashboard', 'open dashboard'], command: 'navigate_dashboard' },
+      { keywords: ['notifications', 'go to notifications', 'open notifications', 'check notifications'], command: 'navigate_notifications' },
       { keywords: ['create class', 'new class', 'add class'], command: 'create_class' },
       { keywords: ['join class', 'enter class'], command: 'join_class' },
       { keywords: ['go home', 'home', 'main page'], command: 'go_home' },
