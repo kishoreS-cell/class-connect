@@ -172,6 +172,85 @@ export type Database = {
           },
         ]
       }
+      gpa_courses: {
+        Row: {
+          course_name: string
+          created_at: string
+          credits: number
+          grade: string
+          grade_points: number
+          id: string
+          record_id: string
+        }
+        Insert: {
+          course_name: string
+          created_at?: string
+          credits?: number
+          grade?: string
+          grade_points?: number
+          id?: string
+          record_id: string
+        }
+        Update: {
+          course_name?: string
+          created_at?: string
+          credits?: number
+          grade?: string
+          grade_points?: number
+          id?: string
+          record_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gpa_courses_record_id_fkey"
+            columns: ["record_id"]
+            isOneToOne: false
+            referencedRelation: "gpa_records"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      gpa_records: {
+        Row: {
+          created_at: string
+          gpa: number
+          id: string
+          semester_name: string
+          semester_order: number
+          student_id: string
+          total_credits: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          gpa?: number
+          id?: string
+          semester_name: string
+          semester_order?: number
+          student_id: string
+          total_credits?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          gpa?: number
+          id?: string
+          semester_name?: string
+          semester_order?: number
+          student_id?: string
+          total_credits?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gpa_records_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       messages: {
         Row: {
           class_id: string
