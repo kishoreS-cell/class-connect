@@ -11,7 +11,8 @@ import {
   Plus,
   Menu,
   X,
-  Calculator
+  Calculator,
+  Brain
 } from 'lucide-react';
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
@@ -34,7 +35,9 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const navItems = [
     { href: '/dashboard', label: 'Dashboard', icon: Home },
     { href: '/notifications', label: 'Notifications', icon: Bell },
-    { href: '/gpa-calculator', label: 'GPA Calculator', icon: Calculator },
+    { href: '/gpa-calculator', label: 'GPA', icon: Calculator },
+    { href: '/calculator', label: 'Calc', icon: Calculator },
+    { href: '/quiz', label: 'Quiz', icon: Brain },
   ];
 
   return (
