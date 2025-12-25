@@ -122,11 +122,27 @@ export default function ClassDetail() {
         // Fetch question papers
         const { data: papersData } = await supabase
           .from('question_papers')
-          .select('*, uploader:profiles!question_papers_uploaded_by_fkey(full_name)')
+          .select('*')
           .eq('class_id', id)
           .order('year', { ascending: false });
 
-        setQuestionPapers(papersData || []);
+        // Fetch uploader names for question papers
+        if (papersData && papersData.length > 0) {
+          const uploaderIds = [...new Set(papersData.map(p => p.uploaded_by))];
+          const { data: uploaders } = await supabase
+            .from('profiles')
+            .select('id, full_name')
+            .in('id', uploaderIds);
+          
+          const uploaderMap = new Map(uploaders?.map(u => [u.id, u.full_name]) || []);
+          const papersWithUploaders = papersData.map(paper => ({
+            ...paper,
+            uploader: { full_name: uploaderMap.get(paper.uploaded_by) || 'Unknown' }
+          }));
+          setQuestionPapers(papersWithUploaders);
+        } else {
+          setQuestionPapers([]);
+        }
 
       } catch (error: any) {
         console.error('Error fetching class:', error);
@@ -224,12 +240,17 @@ export default function ClassDetail() {
           uploaded_by: profile.id,
           class_id: id,
         })
-        .select('*, uploader:profiles!question_papers_uploaded_by_fkey(full_name)')
+        .select('*')
         .single();
 
       if (insertError) throw insertError;
 
-      setQuestionPapers([newPaper, ...questionPapers]);
+      const paperWithUploader = {
+        ...newPaper,
+        uploader: { full_name: profile.full_name }
+      };
+
+      setQuestionPapers([paperWithUploader, ...questionPapers]);
       setUploadDialogOpen(false);
       setPaperTitle('');
       setPaperSubject('');
