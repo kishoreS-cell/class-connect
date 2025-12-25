@@ -1,1 +1,4 @@
 project_id = "xgsaxnoibcwxejewqqsy"
+
+[functions.process-voice-command]
+verify_jwt = false
