@@ -27,7 +27,9 @@ import {
   ClipboardList,
   Newspaper,
   RefreshCw,
-  GraduationCap
+  GraduationCap,
+  Briefcase,
+  MapPin
 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
@@ -110,6 +112,17 @@ interface SyllabusStrategy {
   teacher_name?: string;
 }
 
+interface JobInterview {
+  id: number;
+  company: string;
+  role: string;
+  location: string;
+  date: string;
+  time: string;
+  type: string;
+  category: string;
+}
+
 export default function Dashboard() {
   const { user, profile, loading } = useAuth();
   const [classes, setClasses] = useState<ClassData[]>([]);
@@ -134,6 +147,8 @@ export default function Dashboard() {
   const [strategyContent, setStrategyContent] = useState('');
   const [strategyClassId, setStrategyClassId] = useState('');
   const [savingStrategy, setSavingStrategy] = useState(false);
+  const [jobInterviews, setJobInterviews] = useState<JobInterview[]>([]);
+  const [loadingJobs, setLoadingJobs] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -144,6 +159,7 @@ export default function Dashboard() {
       fetchAttendance();
       fetchNews();
       fetchSyllabusStrategies();
+      fetchJobInterviews();
       if (profile.role === 'student') {
         fetchStudentNotes();
       }
@@ -322,6 +338,21 @@ export default function Dashboard() {
       console.error('Error fetching news:', error);
     } finally {
       setLoadingNews(false);
+    }
+  };
+
+  const fetchJobInterviews = async () => {
+    setLoadingJobs(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('get-job-interviews');
+      if (error) throw error;
+      if (data?.jobs) {
+        setJobInterviews(data.jobs);
+      }
+    } catch (error) {
+      console.error('Error fetching jobs:', error);
+    } finally {
+      setLoadingJobs(false);
     }
   };
 
@@ -1006,6 +1037,76 @@ export default function Dashboard() {
                         </p>
                       </div>
                     </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Job Interviews Section */}
+        <Card className="mb-8">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Briefcase className="w-5 h-5 text-primary" />
+              Upcoming Job Interviews
+              <Button
+                variant="ghost"
+                size="sm"
+                className="ml-auto gap-1"
+                onClick={fetchJobInterviews}
+                disabled={loadingJobs}
+              >
+                <RefreshCw className={`h-4 w-4 ${loadingJobs ? 'animate-spin' : ''}`} />
+                Refresh
+              </Button>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {loadingJobs ? (
+              <div className="space-y-3">
+                {[1, 2, 3, 4, 5].map((i) => (
+                  <div key={i} className="h-20 rounded-lg bg-muted animate-pulse" />
+                ))}
+              </div>
+            ) : jobInterviews.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-4">
+                Click "Refresh" to load job opportunities
+              </p>
+            ) : (
+              <div className="grid gap-3 sm:grid-cols-2">
+                {jobInterviews.map((job) => (
+                  <div
+                    key={job.id}
+                    className="p-4 border rounded-lg bg-background hover:bg-muted/30 transition-colors"
+                  >
+                    <div className="flex items-start justify-between gap-2 mb-2">
+                      <h4 className="font-medium text-sm">{job.role}</h4>
+                      <Badge 
+                        variant={job.type === 'Internship' ? 'secondary' : job.type === 'Full-time' ? 'default' : 'outline'}
+                        className="text-xs shrink-0"
+                      >
+                        {job.type}
+                      </Badge>
+                    </div>
+                    <p className="text-sm text-foreground font-medium">{job.company}</p>
+                    <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
+                      <MapPin className="h-3 w-3" />
+                      {job.location}
+                    </div>
+                    <div className="flex items-center gap-3 mt-2 text-xs">
+                      <span className="flex items-center gap-1 text-muted-foreground">
+                        <Calendar className="h-3 w-3" />
+                        {format(parseISO(job.date), 'MMM d, yyyy')}
+                      </span>
+                      <span className="flex items-center gap-1 text-muted-foreground">
+                        <Clock className="h-3 w-3" />
+                        {job.time}
+                      </span>
+                    </div>
+                    <Badge variant="outline" className="text-xs mt-2">
+                      {job.category}
+                    </Badge>
                   </div>
                 ))}
               </div>
