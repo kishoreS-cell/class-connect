@@ -5,3 +5,6 @@ verify_jwt = false
 
 [functions.get-daily-news]
 verify_jwt = false
+
+[functions.get-job-interviews]
+verify_jwt = false
