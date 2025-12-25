@@ -37,6 +37,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
     { href: '/dashboard', label: 'Dashboard', icon: Home },
     { href: '/calendar', label: 'Calendar', icon: CalendarDays },
     { href: '/gpa-calculator', label: 'GPA', icon: Calculator },
+    { href: '/calculator', label: 'Calc', icon: Calculator },
     { href: '/quiz', label: 'Quiz', icon: Brain },
   ];
 
