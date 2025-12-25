@@ -11,6 +11,7 @@ import CreateClass from "./pages/CreateClass";
 import JoinClass from "./pages/JoinClass";
 import ClassDetail from "./pages/ClassDetail";
 import Notifications from "./pages/Notifications";
+import GpaCalculator from "./pages/GpaCalculator";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -30,6 +31,7 @@ const App = () => (
             <Route path="/class/:id" element={<ClassDetail />} />
             <Route path="/join-class" element={<JoinClass />} />
             <Route path="/notifications" element={<Notifications />} />
+            <Route path="/gpa-calculator" element={<GpaCalculator />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

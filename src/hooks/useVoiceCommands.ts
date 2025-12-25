@@ -41,6 +41,10 @@ export const useVoiceCommands = () => {
       action: () => navigateRef.current?.('/notifications'),
       description: 'Go to notifications',
     },
+    navigate_gpa_calculator: {
+      action: () => navigateRef.current?.('/gpa-calculator'),
+      description: 'Open GPA calculator',
+    },
     create_class: {
       action: () => navigateRef.current?.('/create-class'),
       description: 'Create a new class',
@@ -63,7 +67,7 @@ export const useVoiceCommands = () => {
       action: () => {
         toastRef.current?.({
           title: '🎤 Voice Commands',
-          description: 'Say: "Dashboard", "Notifications", "Create class", "Join class", "Go home"',
+          description: 'Say: "Dashboard", "Notifications", "GPA Calculator", "Create class", "Join class"',
           duration: 5000,
         });
       },
@@ -115,6 +119,7 @@ export const useVoiceCommands = () => {
     const localCommands = [
       { keywords: ['dashboard', 'go to dashboard', 'open dashboard'], command: 'navigate_dashboard' },
       { keywords: ['notifications', 'go to notifications', 'open notifications', 'check notifications'], command: 'navigate_notifications' },
+      { keywords: ['gpa', 'cgpa', 'calculator', 'gpa calculator', 'calculate gpa'], command: 'navigate_gpa_calculator' },
       { keywords: ['create class', 'new class', 'add class'], command: 'create_class' },
       { keywords: ['join class', 'enter class'], command: 'join_class' },
       { keywords: ['go home', 'home', 'main page'], command: 'go_home' },
