@@ -27,6 +27,7 @@ serve(async (req) => {
 Available commands:
 - "navigate_dashboard" - Go to dashboard (phrases: go to dashboard, open dashboard, show dashboard, dashboard)
 - "navigate_notifications" - Go to notifications (phrases: go to notifications, open notifications, show notifications, notifications, my notifications, check notifications)
+- "navigate_gpa_calculator" - Open GPA/CGPA calculator (phrases: gpa calculator, cgpa calculator, calculate gpa, calculate cgpa, open calculator, gpa, cgpa)
 - "create_class" - Create a new class (phrases: create class, new class, add class, make class)
 - "join_class" - Join a class (phrases: join class, enter class, join a class)
 - "go_home" - Go to home page (phrases: go home, home, main page, home page)
@@ -43,6 +44,9 @@ For students, be especially helpful - they might say things like:
 - "create a new classroom" -> create_class
 - "show my notifications" -> navigate_notifications
 - "do I have any notifications" -> navigate_notifications
+- "calculate my gpa" -> navigate_gpa_calculator
+- "open gpa calculator" -> navigate_gpa_calculator
+- "I want to check my cgpa" -> navigate_gpa_calculator
 
 Respond ONLY with a JSON object in this exact format:
 {"command": "command_name", "confidence": 0.95, "interpreted_as": "what you understood"}`;
