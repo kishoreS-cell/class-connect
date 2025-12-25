@@ -24,7 +24,9 @@ import {
   Trash2,
   X,
   Save,
-  ClipboardList
+  ClipboardList,
+  Newspaper,
+  RefreshCw
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { format, parseISO, isToday, isTomorrow, addDays, isBefore } from 'date-fns';
@@ -87,6 +89,13 @@ interface AttendanceRecord {
   student_name?: string;
 }
 
+interface NewsItem {
+  id: number;
+  title: string;
+  summary: string;
+  category: string;
+}
+
 export default function Dashboard() {
   const { user, profile, loading } = useAuth();
   const [classes, setClasses] = useState<ClassData[]>([]);
@@ -102,6 +111,8 @@ export default function Dashboard() {
   const [noteContent, setNoteContent] = useState('');
   const [savingNote, setSavingNote] = useState(false);
   const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
+  const [news, setNews] = useState<NewsItem[]>([]);
+  const [loadingNews, setLoadingNews] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -110,6 +121,7 @@ export default function Dashboard() {
       fetchRemindersAndHolidays();
       fetchNotifications();
       fetchAttendance();
+      fetchNews();
       if (profile.role === 'student') {
         fetchStudentNotes();
       }
@@ -273,6 +285,21 @@ export default function Dashboard() {
           setAttendanceRecords(records);
         }
       }
+    }
+  };
+
+  const fetchNews = async () => {
+    setLoadingNews(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('get-daily-news');
+      if (error) throw error;
+      if (data?.news) {
+        setNews(data.news);
+      }
+    } catch (error) {
+      console.error('Error fetching news:', error);
+    } finally {
+      setLoadingNews(false);
     }
   };
 
@@ -664,6 +691,62 @@ export default function Dashboard() {
             </CardContent>
           </Card>
         )}
+
+        {/* Daily News Section */}
+        <Card className="mb-8">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Newspaper className="w-5 h-5 text-primary" />
+              Today's Top News
+              <Button
+                variant="ghost"
+                size="sm"
+                className="ml-auto gap-1"
+                onClick={fetchNews}
+                disabled={loadingNews}
+              >
+                <RefreshCw className={`h-4 w-4 ${loadingNews ? 'animate-spin' : ''}`} />
+                Refresh
+              </Button>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {loadingNews ? (
+              <div className="space-y-3">
+                {[1, 2, 3, 4, 5].map((i) => (
+                  <div key={i} className="h-16 rounded-lg bg-muted animate-pulse" />
+                ))}
+              </div>
+            ) : news.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-4">
+                Click "Refresh" to load today's news
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {news.map((item) => (
+                  <div
+                    key={item.id}
+                    className="p-3 bg-muted/30 rounded-lg hover:bg-muted/50 transition-colors"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <Badge variant="outline" className="text-xs">
+                            {item.category}
+                          </Badge>
+                        </div>
+                        <h4 className="font-medium text-sm">{item.title}</h4>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {item.summary}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         {loadingClasses ? (
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
