@@ -104,12 +104,47 @@ export default {
           from: { opacity: "0", transform: "translateY(20px)" },
           to: { opacity: "1", transform: "translateY(0)" },
         },
+        "float": {
+          "0%, 100%": { transform: "translateY(0) rotateX(0)" },
+          "50%": { transform: "translateY(-10px) rotateX(2deg)" },
+        },
+        "float-slow": {
+          "0%, 100%": { transform: "translateY(0) rotateY(0)" },
+          "50%": { transform: "translateY(-5px) rotateY(3deg)" },
+        },
+        "tilt-in": {
+          from: { opacity: "0", transform: "perspective(1000px) rotateX(-10deg) translateY(20px)" },
+          to: { opacity: "1", transform: "perspective(1000px) rotateX(0) translateY(0)" },
+        },
+        "flip-in": {
+          from: { opacity: "0", transform: "perspective(1000px) rotateY(-15deg) translateX(-30px)" },
+          to: { opacity: "1", transform: "perspective(1000px) rotateY(0) translateX(0)" },
+        },
+        "scale-3d": {
+          from: { opacity: "0", transform: "perspective(1000px) scale(0.8) translateZ(-50px)" },
+          to: { opacity: "1", transform: "perspective(1000px) scale(1) translateZ(0)" },
+        },
+        "rotate-in": {
+          from: { opacity: "0", transform: "perspective(1000px) rotateY(-90deg)" },
+          to: { opacity: "1", transform: "perspective(1000px) rotateY(0deg)" },
+        },
+        "bounce-3d": {
+          "0%, 100%": { transform: "perspective(1000px) translateZ(0) rotateX(0)" },
+          "50%": { transform: "perspective(1000px) translateZ(20px) rotateX(5deg)" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
         "fade-in": "fade-in 0.5s ease-out forwards",
         "slide-up": "slide-up 0.5s ease-out forwards",
+        "float": "float 4s ease-in-out infinite",
+        "float-slow": "float-slow 6s ease-in-out infinite",
+        "tilt-in": "tilt-in 0.6s ease-out forwards",
+        "flip-in": "flip-in 0.7s ease-out forwards",
+        "scale-3d": "scale-3d 0.5s ease-out forwards",
+        "rotate-in": "rotate-in 0.8s ease-out forwards",
+        "bounce-3d": "bounce-3d 2s ease-in-out infinite",
       },
     },
   },
