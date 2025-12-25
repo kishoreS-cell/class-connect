@@ -14,6 +14,7 @@ import Notifications from "./pages/Notifications";
 import GpaCalculator from "./pages/GpaCalculator";
 import Calculator from "./pages/Calculator";
 import Quiz from "./pages/Quiz";
+import CalendarPage from "./pages/CalendarPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -36,6 +37,7 @@ const App = () => (
             <Route path="/gpa-calculator" element={<GpaCalculator />} />
             <Route path="/calculator" element={<Calculator />} />
             <Route path="/quiz" element={<Quiz />} />
+            <Route path="/calendar" element={<CalendarPage />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
