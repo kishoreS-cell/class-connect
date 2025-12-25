@@ -4,7 +4,7 @@ import { useAuth } from '@/lib/auth';
 import AppLayout from '@/components/layout/AppLayout';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, BookOpen, FileText, Users, Copy, CheckCircle, MessageCircle, UserMinus, ScrollText, Upload, Download, Trash2, Video, Play } from 'lucide-react';
+import { ArrowLeft, BookOpen, FileText, Users, Copy, CheckCircle, MessageCircle, UserMinus, ScrollText, Upload, Download, Trash2, Video, Play, ClipboardList, Check, X, Clock } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { ChatDialog } from '@/components/ChatDialog';
 import { VideoCallDialog } from '@/components/VideoCallDialog';
@@ -65,7 +65,7 @@ export default function ClassDetail() {
   const [classData, setClassData] = useState<ClassData | null>(null);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
-  const [activeTab, setActiveTab] = useState<'notes' | 'assignments' | 'members' | 'papers' | 'videos'>('notes');
+  const [activeTab, setActiveTab] = useState<'notes' | 'assignments' | 'members' | 'papers' | 'videos' | 'attendance'>('notes');
   const [members, setMembers] = useState<any[]>([]);
   const [notes, setNotes] = useState<any[]>([]);
   const [assignments, setAssignments] = useState<any[]>([]);
@@ -92,6 +92,12 @@ export default function ClassDetail() {
   const [callOpen, setCallOpen] = useState(false);
   const [selectedMember, setSelectedMember] = useState<{ id: string; name: string } | null>(null);
   const [callType, setCallType] = useState<'audio' | 'video'>('video');
+
+  // Attendance state
+  const [attendanceDate, setAttendanceDate] = useState(new Date().toISOString().split('T')[0]);
+  const [attendanceRecords, setAttendanceRecords] = useState<Record<string, 'present' | 'absent' | 'late'>>({});
+  const [savingAttendance, setSavingAttendance] = useState(false);
+  const [existingAttendance, setExistingAttendance] = useState<any[]>([]);
 
   useEffect(() => {
     if (!id || !profile) return;
@@ -406,6 +412,77 @@ export default function ClassDetail() {
     }
   };
 
+  // Fetch attendance for selected date
+  const fetchAttendance = async (date: string) => {
+    if (!id || !profile) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from('attendance')
+        .select('*')
+        .eq('class_id', id)
+        .eq('date', date);
+
+      if (error) throw error;
+
+      setExistingAttendance(data || []);
+      
+      // Initialize attendance records from existing data
+      const records: Record<string, 'present' | 'absent' | 'late'> = {};
+      data?.forEach(record => {
+        records[record.student_id] = record.status as 'present' | 'absent' | 'late';
+      });
+      setAttendanceRecords(records);
+    } catch (error) {
+      console.error('Error fetching attendance:', error);
+    }
+  };
+
+  // Effect to fetch attendance when date changes
+  useEffect(() => {
+    if (activeTab === 'attendance' && id && profile) {
+      fetchAttendance(attendanceDate);
+    }
+  }, [activeTab, attendanceDate, id, profile]);
+
+  const markAttendance = (studentId: string, status: 'present' | 'absent' | 'late') => {
+    setAttendanceRecords(prev => ({ ...prev, [studentId]: status }));
+  };
+
+  const saveAttendance = async () => {
+    if (!id || !profile) return;
+    
+    setSavingAttendance(true);
+    try {
+      // Upsert attendance records for each student
+      for (const member of members) {
+        const status = attendanceRecords[member.student_id] || 'absent';
+        
+        const { error } = await supabase
+          .from('attendance')
+          .upsert({
+            class_id: id,
+            student_id: member.student_id,
+            date: attendanceDate,
+            status: status,
+            marked_by: profile.id,
+          }, {
+            onConflict: 'class_id,student_id,date'
+          });
+
+        if (error) throw error;
+      }
+
+      toast({ title: 'Attendance saved successfully!' });
+      fetchAttendance(attendanceDate);
+    } catch (error: any) {
+      console.error('Error saving attendance:', error);
+      toast({ title: 'Failed to save attendance', description: error.message, variant: 'destructive' });
+    } finally {
+      setSavingAttendance(false);
+    }
+  };
+
   if (authLoading || loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -429,6 +506,7 @@ export default function ClassDetail() {
     { id: 'assignments', label: 'Assignments', icon: BookOpen, count: assignments.length },
     { id: 'papers', label: 'Question Papers', icon: ScrollText, count: questionPapers.length },
     { id: 'videos', label: 'Recorded Videos', icon: Video, count: recordedVideos.length },
+    ...(isTeacher ? [{ id: 'attendance' as const, label: 'Attendance', icon: ClipboardList, count: members.length }] : []),
     { id: 'members', label: 'Members', icon: Users, count: members.length },
   ] as const;
 
@@ -749,6 +827,85 @@ export default function ClassDetail() {
                       </div>
                     </div>
                   ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeTab === 'attendance' && isTeacher && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between gap-4 flex-wrap">
+                <div className="flex items-center gap-3">
+                  <Label htmlFor="attendance-date" className="whitespace-nowrap">Select Date:</Label>
+                  <Input
+                    id="attendance-date"
+                    type="date"
+                    value={attendanceDate}
+                    onChange={(e) => setAttendanceDate(e.target.value)}
+                    className="w-auto"
+                  />
+                </div>
+                <Button onClick={saveAttendance} disabled={savingAttendance} className="gap-2">
+                  <CheckCircle className="h-4 w-4" />
+                  {savingAttendance ? 'Saving...' : 'Save Attendance'}
+                </Button>
+              </div>
+
+              {members.length === 0 ? (
+                <div className="text-center py-12 text-muted-foreground">
+                  <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p>No students in this class yet</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <div className="bg-muted rounded-lg p-3 grid grid-cols-[1fr_auto] gap-4 font-medium text-sm">
+                    <span>Student</span>
+                    <span className="text-center w-36">Status</span>
+                  </div>
+                  {members.map((member) => {
+                    const currentStatus = attendanceRecords[member.student_id];
+                    return (
+                      <div key={member.id} className="bg-card border border-border rounded-lg p-3 grid grid-cols-[1fr_auto] gap-4 items-center">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-full bg-sage flex items-center justify-center">
+                            <span className="text-secondary-foreground font-semibold text-sm">
+                              {member.student?.full_name?.charAt(0).toUpperCase()}
+                            </span>
+                          </div>
+                          <span className="font-medium text-foreground">{member.student?.full_name}</span>
+                        </div>
+                        <div className="flex gap-1">
+                          <Button
+                            size="sm"
+                            variant={currentStatus === 'present' ? 'default' : 'outline'}
+                            onClick={() => markAttendance(member.student_id, 'present')}
+                            className={`gap-1 ${currentStatus === 'present' ? 'bg-green-600 hover:bg-green-700' : ''}`}
+                          >
+                            <Check className="h-3 w-3" />
+                            P
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant={currentStatus === 'absent' ? 'default' : 'outline'}
+                            onClick={() => markAttendance(member.student_id, 'absent')}
+                            className={`gap-1 ${currentStatus === 'absent' ? 'bg-red-600 hover:bg-red-700' : ''}`}
+                          >
+                            <X className="h-3 w-3" />
+                            A
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant={currentStatus === 'late' ? 'default' : 'outline'}
+                            onClick={() => markAttendance(member.student_id, 'late')}
+                            className={`gap-1 ${currentStatus === 'late' ? 'bg-yellow-600 hover:bg-yellow-700' : ''}`}
+                          >
+                            <Clock className="h-3 w-3" />
+                            L
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>
