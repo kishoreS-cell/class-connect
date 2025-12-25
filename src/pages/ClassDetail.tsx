@@ -4,7 +4,7 @@ import { useAuth } from '@/lib/auth';
 import AppLayout from '@/components/layout/AppLayout';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, BookOpen, FileText, Users, Copy, CheckCircle, MessageCircle } from 'lucide-react';
+import { ArrowLeft, BookOpen, FileText, Users, Copy, CheckCircle, MessageCircle, UserMinus } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { ChatDialog } from '@/components/ChatDialog';
 import { VideoCallDialog } from '@/components/VideoCallDialog';
@@ -121,6 +121,34 @@ export default function ClassDetail() {
     setCallType(type);
     setChatOpen(false);
     setCallOpen(true);
+  };
+
+  const removeStudent = async (memberId: string, studentName: string) => {
+    if (!confirm(`Are you sure you want to remove ${studentName} from this class?`)) {
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('class_members')
+        .delete()
+        .eq('id', memberId);
+
+      if (error) throw error;
+
+      setMembers(members.filter(m => m.id !== memberId));
+      toast({
+        title: 'Student removed',
+        description: `${studentName} has been removed from the class`,
+      });
+    } catch (error: any) {
+      console.error('Error removing student:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to remove student',
+        variant: 'destructive',
+      });
+    }
   };
 
   if (authLoading || loading) {
@@ -322,17 +350,30 @@ export default function ClassDetail() {
                       <p className="text-xs text-muted-foreground">Student</p>
                     </div>
                   </div>
-                  {member.student_id !== profile?.id && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => openChat(member.student_id, member.student?.full_name || 'Student')}
-                      className="gap-2"
-                    >
-                      <MessageCircle className="h-4 w-4" />
-                      Chat
-                    </Button>
-                  )}
+                  <div className="flex items-center gap-2">
+                    {member.student_id !== profile?.id && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => openChat(member.student_id, member.student?.full_name || 'Student')}
+                        className="gap-2"
+                      >
+                        <MessageCircle className="h-4 w-4" />
+                        Chat
+                      </Button>
+                    )}
+                    {isTeacher && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => removeStudent(member.id, member.student?.full_name || 'Student')}
+                        className="text-destructive hover:text-destructive hover:bg-destructive/10 gap-2"
+                      >
+                        <UserMinus className="h-4 w-4" />
+                        Remove
+                      </Button>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
