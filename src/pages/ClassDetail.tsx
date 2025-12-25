@@ -1,13 +1,22 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useParams, Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
 import AppLayout from '@/components/layout/AppLayout';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, BookOpen, FileText, Users, Copy, CheckCircle, MessageCircle, UserMinus } from 'lucide-react';
+import { ArrowLeft, BookOpen, FileText, Users, Copy, CheckCircle, MessageCircle, UserMinus, ScrollText, Upload, Download, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { ChatDialog } from '@/components/ChatDialog';
 import { VideoCallDialog } from '@/components/VideoCallDialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
 
 interface ClassData {
   id: string;
@@ -22,6 +31,19 @@ interface ClassData {
   };
 }
 
+interface QuestionPaper {
+  id: string;
+  title: string;
+  subject: string;
+  year: number;
+  file_url: string;
+  file_name: string;
+  uploaded_by: string;
+  class_id: string;
+  created_at: string;
+  uploader?: { full_name: string };
+}
+
 export default function ClassDetail() {
   const { id } = useParams<{ id: string }>();
   const { user, profile, loading: authLoading } = useAuth();
@@ -31,10 +53,19 @@ export default function ClassDetail() {
   const [classData, setClassData] = useState<ClassData | null>(null);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
-  const [activeTab, setActiveTab] = useState<'notes' | 'assignments' | 'members'>('notes');
+  const [activeTab, setActiveTab] = useState<'notes' | 'assignments' | 'members' | 'papers'>('notes');
   const [members, setMembers] = useState<any[]>([]);
   const [notes, setNotes] = useState<any[]>([]);
   const [assignments, setAssignments] = useState<any[]>([]);
+  const [questionPapers, setQuestionPapers] = useState<QuestionPaper[]>([]);
+  
+  // Question paper upload state
+  const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
+  const [paperTitle, setPaperTitle] = useState('');
+  const [paperSubject, setPaperSubject] = useState('');
+  const [paperYear, setPaperYear] = useState(new Date().getFullYear().toString());
+  const [uploadingPaper, setUploadingPaper] = useState(false);
+  const paperFileRef = useRef<HTMLInputElement>(null);
   
   // Chat and call state
   const [chatOpen, setChatOpen] = useState(false);
@@ -87,6 +118,15 @@ export default function ClassDetail() {
           .order('due_date', { ascending: true });
 
         setAssignments(assignmentsData || []);
+
+        // Fetch question papers
+        const { data: papersData } = await supabase
+          .from('question_papers')
+          .select('*, uploader:profiles!question_papers_uploaded_by_fkey(full_name)')
+          .eq('class_id', id)
+          .order('year', { ascending: false });
+
+        setQuestionPapers(papersData || []);
 
       } catch (error: any) {
         console.error('Error fetching class:', error);
@@ -151,6 +191,79 @@ export default function ClassDetail() {
     }
   };
 
+  const uploadQuestionPaper = async () => {
+    const file = paperFileRef.current?.files?.[0];
+    if (!file || !paperTitle || !paperSubject || !paperYear || !profile || !id) {
+      toast({ title: 'Please fill all fields', variant: 'destructive' });
+      return;
+    }
+
+    setUploadingPaper(true);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const filePath = `${id}/papers/${Date.now()}.${fileExt}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('class-files')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('class-files')
+        .getPublicUrl(filePath);
+
+      const { data: newPaper, error: insertError } = await supabase
+        .from('question_papers')
+        .insert({
+          title: paperTitle,
+          subject: paperSubject,
+          year: parseInt(paperYear),
+          file_url: publicUrl,
+          file_name: file.name,
+          uploaded_by: profile.id,
+          class_id: id,
+        })
+        .select('*, uploader:profiles!question_papers_uploaded_by_fkey(full_name)')
+        .single();
+
+      if (insertError) throw insertError;
+
+      setQuestionPapers([newPaper, ...questionPapers]);
+      setUploadDialogOpen(false);
+      setPaperTitle('');
+      setPaperSubject('');
+      setPaperYear(new Date().getFullYear().toString());
+      if (paperFileRef.current) paperFileRef.current.value = '';
+
+      toast({ title: 'Question paper uploaded successfully!' });
+    } catch (error: any) {
+      console.error('Upload error:', error);
+      toast({ title: 'Upload failed', description: error.message, variant: 'destructive' });
+    } finally {
+      setUploadingPaper(false);
+    }
+  };
+
+  const deleteQuestionPaper = async (paper: QuestionPaper) => {
+    if (!confirm('Are you sure you want to delete this question paper?')) return;
+
+    try {
+      const { error } = await supabase
+        .from('question_papers')
+        .delete()
+        .eq('id', paper.id);
+
+      if (error) throw error;
+
+      setQuestionPapers(questionPapers.filter(p => p.id !== paper.id));
+      toast({ title: 'Question paper deleted' });
+    } catch (error: any) {
+      console.error('Delete error:', error);
+      toast({ title: 'Delete failed', variant: 'destructive' });
+    }
+  };
+
   if (authLoading || loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -172,6 +285,7 @@ export default function ClassDetail() {
   const tabs = [
     { id: 'notes', label: 'Notes', icon: FileText, count: notes.length },
     { id: 'assignments', label: 'Assignments', icon: BookOpen, count: assignments.length },
+    { id: 'papers', label: 'Question Papers', icon: ScrollText, count: questionPapers.length },
     { id: 'members', label: 'Members', icon: Users, count: members.length },
   ] as const;
 
@@ -286,6 +400,107 @@ export default function ClassDetail() {
                           {new Date(assignment.due_date).toLocaleDateString()}
                         </p>
                       </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+
+          {activeTab === 'papers' && (
+            <div className="space-y-4">
+              <Dialog open={uploadDialogOpen} onOpenChange={setUploadDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button className="gap-2">
+                    <Upload className="h-4 w-4" />
+                    Upload Question Paper
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Upload Question Paper</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4">
+                    <div>
+                      <Label htmlFor="paper-title">Title</Label>
+                      <Input
+                        id="paper-title"
+                        value={paperTitle}
+                        onChange={(e) => setPaperTitle(e.target.value)}
+                        placeholder="e.g., Final Exam 2023"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="paper-subject">Subject</Label>
+                      <Input
+                        id="paper-subject"
+                        value={paperSubject}
+                        onChange={(e) => setPaperSubject(e.target.value)}
+                        placeholder="e.g., Mathematics"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="paper-year">Year</Label>
+                      <Input
+                        id="paper-year"
+                        type="number"
+                        value={paperYear}
+                        onChange={(e) => setPaperYear(e.target.value)}
+                        placeholder="e.g., 2023"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="paper-file">File</Label>
+                      <Input
+                        id="paper-file"
+                        type="file"
+                        ref={paperFileRef}
+                        accept=".pdf,.doc,.docx,.png,.jpg,.jpeg"
+                      />
+                    </div>
+                    <Button onClick={uploadQuestionPaper} disabled={uploadingPaper} className="w-full">
+                      {uploadingPaper ? 'Uploading...' : 'Upload'}
+                    </Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
+
+              {questionPapers.length === 0 ? (
+                <div className="text-center py-12 text-muted-foreground">
+                  <ScrollText className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p>No question papers yet</p>
+                  <p className="text-sm">Upload previous year question papers</p>
+                </div>
+              ) : (
+                questionPapers.map((paper) => (
+                  <div key={paper.id} className="bg-card border border-border rounded-xl p-4 flex items-center justify-between">
+                    <div>
+                      <h3 className="font-semibold text-foreground">{paper.title}</h3>
+                      <p className="text-sm text-muted-foreground">{paper.subject} • {paper.year}</p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Uploaded by {paper.uploader?.full_name} • {paper.file_name}
+                      </p>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => window.open(paper.file_url, '_blank')}
+                        className="gap-2"
+                      >
+                        <Download className="h-4 w-4" />
+                        Download
+                      </Button>
+                      {paper.uploaded_by === profile?.id && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => deleteQuestionPaper(paper)}
+                          className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
                     </div>
                   </div>
                 ))

@@ -424,6 +424,50 @@ export type Database = {
         }
         Relationships: []
       }
+      question_papers: {
+        Row: {
+          class_id: string | null
+          created_at: string
+          file_name: string
+          file_url: string
+          id: string
+          subject: string
+          title: string
+          uploaded_by: string
+          year: number
+        }
+        Insert: {
+          class_id?: string | null
+          created_at?: string
+          file_name: string
+          file_url: string
+          id?: string
+          subject: string
+          title: string
+          uploaded_by: string
+          year: number
+        }
+        Update: {
+          class_id?: string | null
+          created_at?: string
+          file_name?: string
+          file_url?: string
+          id?: string
+          subject?: string
+          title?: string
+          uploaded_by?: string
+          year?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "question_papers_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       reminders: {
         Row: {
           created_at: string
