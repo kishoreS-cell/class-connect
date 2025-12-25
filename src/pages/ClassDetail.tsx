@@ -4,7 +4,7 @@ import { useAuth } from '@/lib/auth';
 import AppLayout from '@/components/layout/AppLayout';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, BookOpen, FileText, Users, Copy, CheckCircle, MessageCircle, UserMinus, ScrollText, Upload, Download, Trash2 } from 'lucide-react';
+import { ArrowLeft, BookOpen, FileText, Users, Copy, CheckCircle, MessageCircle, UserMinus, ScrollText, Upload, Download, Trash2, Video, Play } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { ChatDialog } from '@/components/ChatDialog';
 import { VideoCallDialog } from '@/components/VideoCallDialog';
@@ -44,6 +44,18 @@ interface QuestionPaper {
   uploader?: { full_name: string };
 }
 
+interface RecordedVideo {
+  id: string;
+  title: string;
+  description: string | null;
+  video_url: string;
+  file_name: string;
+  uploaded_by: string;
+  class_id: string;
+  created_at: string;
+  uploader?: { full_name: string };
+}
+
 export default function ClassDetail() {
   const { id } = useParams<{ id: string }>();
   const { user, profile, loading: authLoading } = useAuth();
@@ -53,11 +65,12 @@ export default function ClassDetail() {
   const [classData, setClassData] = useState<ClassData | null>(null);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
-  const [activeTab, setActiveTab] = useState<'notes' | 'assignments' | 'members' | 'papers'>('notes');
+  const [activeTab, setActiveTab] = useState<'notes' | 'assignments' | 'members' | 'papers' | 'videos'>('notes');
   const [members, setMembers] = useState<any[]>([]);
   const [notes, setNotes] = useState<any[]>([]);
   const [assignments, setAssignments] = useState<any[]>([]);
   const [questionPapers, setQuestionPapers] = useState<QuestionPaper[]>([]);
+  const [recordedVideos, setRecordedVideos] = useState<RecordedVideo[]>([]);
   
   // Question paper upload state
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
@@ -66,6 +79,13 @@ export default function ClassDetail() {
   const [paperYear, setPaperYear] = useState(new Date().getFullYear().toString());
   const [uploadingPaper, setUploadingPaper] = useState(false);
   const paperFileRef = useRef<HTMLInputElement>(null);
+
+  // Video upload state
+  const [videoDialogOpen, setVideoDialogOpen] = useState(false);
+  const [videoTitle, setVideoTitle] = useState('');
+  const [videoDescription, setVideoDescription] = useState('');
+  const [uploadingVideo, setUploadingVideo] = useState(false);
+  const videoFileRef = useRef<HTMLInputElement>(null);
   
   // Chat and call state
   const [chatOpen, setChatOpen] = useState(false);
@@ -142,6 +162,31 @@ export default function ClassDetail() {
           setQuestionPapers(papersWithUploaders);
         } else {
           setQuestionPapers([]);
+        }
+
+        // Fetch recorded videos
+        const { data: videosData } = await supabase
+          .from('recorded_videos')
+          .select('*')
+          .eq('class_id', id)
+          .order('created_at', { ascending: false });
+
+        // Fetch uploader names for videos
+        if (videosData && videosData.length > 0) {
+          const videoUploaderIds = [...new Set(videosData.map(v => v.uploaded_by))];
+          const { data: videoUploaders } = await supabase
+            .from('profiles')
+            .select('id, full_name')
+            .in('id', videoUploaderIds);
+          
+          const videoUploaderMap = new Map(videoUploaders?.map(u => [u.id, u.full_name]) || []);
+          const videosWithUploaders = videosData.map(video => ({
+            ...video,
+            uploader: { full_name: videoUploaderMap.get(video.uploaded_by) || 'Unknown' }
+          }));
+          setRecordedVideos(videosWithUploaders);
+        } else {
+          setRecordedVideos([]);
         }
 
       } catch (error: any) {
@@ -285,6 +330,82 @@ export default function ClassDetail() {
     }
   };
 
+  const uploadRecordedVideo = async () => {
+    const file = videoFileRef.current?.files?.[0];
+    if (!file || !videoTitle || !profile || !id) {
+      toast({ title: 'Please fill all required fields', variant: 'destructive' });
+      return;
+    }
+
+    setUploadingVideo(true);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const filePath = `${id}/videos/${Date.now()}.${fileExt}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('class-files')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('class-files')
+        .getPublicUrl(filePath);
+
+      const { data: newVideo, error: insertError } = await supabase
+        .from('recorded_videos')
+        .insert({
+          title: videoTitle,
+          description: videoDescription || null,
+          video_url: publicUrl,
+          file_name: file.name,
+          uploaded_by: profile.id,
+          class_id: id,
+        })
+        .select('*')
+        .single();
+
+      if (insertError) throw insertError;
+
+      const videoWithUploader = {
+        ...newVideo,
+        uploader: { full_name: profile.full_name }
+      };
+
+      setRecordedVideos([videoWithUploader, ...recordedVideos]);
+      setVideoDialogOpen(false);
+      setVideoTitle('');
+      setVideoDescription('');
+      if (videoFileRef.current) videoFileRef.current.value = '';
+
+      toast({ title: 'Video uploaded successfully!' });
+    } catch (error: any) {
+      console.error('Upload error:', error);
+      toast({ title: 'Upload failed', description: error.message, variant: 'destructive' });
+    } finally {
+      setUploadingVideo(false);
+    }
+  };
+
+  const deleteRecordedVideo = async (video: RecordedVideo) => {
+    if (!confirm('Are you sure you want to delete this video?')) return;
+
+    try {
+      const { error } = await supabase
+        .from('recorded_videos')
+        .delete()
+        .eq('id', video.id);
+
+      if (error) throw error;
+
+      setRecordedVideos(recordedVideos.filter(v => v.id !== video.id));
+      toast({ title: 'Video deleted' });
+    } catch (error: any) {
+      console.error('Delete error:', error);
+      toast({ title: 'Delete failed', variant: 'destructive' });
+    }
+  };
+
   if (authLoading || loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -307,6 +428,7 @@ export default function ClassDetail() {
     { id: 'notes', label: 'Notes', icon: FileText, count: notes.length },
     { id: 'assignments', label: 'Assignments', icon: BookOpen, count: assignments.length },
     { id: 'papers', label: 'Question Papers', icon: ScrollText, count: questionPapers.length },
+    { id: 'videos', label: 'Recorded Videos', icon: Video, count: recordedVideos.length },
     { id: 'members', label: 'Members', icon: Users, count: members.length },
   ] as const;
 
@@ -525,6 +647,109 @@ export default function ClassDetail() {
                     </div>
                   </div>
                 ))
+              )}
+            </div>
+          )}
+
+          {activeTab === 'videos' && (
+            <div className="space-y-4">
+              <Dialog open={videoDialogOpen} onOpenChange={setVideoDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button className="gap-2">
+                    <Upload className="h-4 w-4" />
+                    Upload Video
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Upload Recorded Video</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4">
+                    <div>
+                      <Label htmlFor="video-title">Title *</Label>
+                      <Input
+                        id="video-title"
+                        value={videoTitle}
+                        onChange={(e) => setVideoTitle(e.target.value)}
+                        placeholder="e.g., Lecture 1 - Introduction"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="video-description">Description</Label>
+                      <Input
+                        id="video-description"
+                        value={videoDescription}
+                        onChange={(e) => setVideoDescription(e.target.value)}
+                        placeholder="Brief description of the video"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="video-file">Video File *</Label>
+                      <Input
+                        id="video-file"
+                        type="file"
+                        ref={videoFileRef}
+                        accept="video/*"
+                      />
+                    </div>
+                    <Button onClick={uploadRecordedVideo} disabled={uploadingVideo} className="w-full">
+                      {uploadingVideo ? 'Uploading...' : 'Upload'}
+                    </Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
+
+              {recordedVideos.length === 0 ? (
+                <div className="text-center py-12 text-muted-foreground">
+                  <Video className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p>No recorded videos yet</p>
+                  <p className="text-sm">Upload lecture recordings and tutorials</p>
+                </div>
+              ) : (
+                <div className="grid gap-4 sm:grid-cols-2">
+                  {recordedVideos.map((video) => (
+                    <div key={video.id} className="bg-card border border-border rounded-xl overflow-hidden">
+                      <div className="aspect-video bg-muted flex items-center justify-center">
+                        <video
+                          src={video.video_url}
+                          controls
+                          className="w-full h-full object-cover"
+                          preload="metadata"
+                        />
+                      </div>
+                      <div className="p-4">
+                        <h3 className="font-semibold text-foreground">{video.title}</h3>
+                        {video.description && (
+                          <p className="text-sm text-muted-foreground mt-1">{video.description}</p>
+                        )}
+                        <p className="text-xs text-muted-foreground mt-2">
+                          Uploaded by {video.uploader?.full_name} • {new Date(video.created_at).toLocaleDateString()}
+                        </p>
+                        <div className="flex gap-2 mt-3">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => window.open(video.video_url, '_blank')}
+                            className="gap-2 flex-1"
+                          >
+                            <Play className="h-4 w-4" />
+                            Open
+                          </Button>
+                          {video.uploaded_by === profile?.id && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => deleteRecordedVideo(video)}
+                              className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               )}
             </div>
           )}
