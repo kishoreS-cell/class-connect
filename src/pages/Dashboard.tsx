@@ -4,16 +4,22 @@ import { useAuth } from '@/lib/auth';
 import AppLayout from '@/components/layout/AppLayout';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { 
   BookOpen, 
   Users, 
   Calendar,
-  FileText,
   Plus,
   Copy,
-  Check
+  Check,
+  Bell,
+  Clock,
+  PartyPopper,
+  ChevronRight
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { format, parseISO, isToday, isTomorrow, addDays, isBefore } from 'date-fns';
 
 interface ClassData {
   id: string;
@@ -30,16 +36,46 @@ interface ClassData {
   assignment_count?: number;
 }
 
+interface Reminder {
+  id: string;
+  title: string;
+  description: string | null;
+  reminder_date: string;
+  reminder_time: string | null;
+  is_completed: boolean;
+}
+
+interface Holiday {
+  id: string;
+  title: string;
+  date: string;
+}
+
+interface Notification {
+  id: string;
+  title: string;
+  message: string;
+  type: string;
+  read: boolean;
+  created_at: string;
+  link: string | null;
+}
+
 export default function Dashboard() {
   const { user, profile, loading } = useAuth();
   const [classes, setClasses] = useState<ClassData[]>([]);
   const [loadingClasses, setLoadingClasses] = useState(true);
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
+  const [reminders, setReminders] = useState<Reminder[]>([]);
+  const [holidays, setHolidays] = useState<Holiday[]>([]);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
   const { toast } = useToast();
 
   useEffect(() => {
     if (profile) {
       fetchClasses();
+      fetchRemindersAndHolidays();
+      fetchNotifications();
     }
   }, [profile]);
 
@@ -91,6 +127,62 @@ export default function Dashboard() {
     }
   };
 
+  const fetchRemindersAndHolidays = async () => {
+    if (!profile?.id) return;
+
+    const today = new Date();
+    const nextWeek = addDays(today, 7);
+
+    // Fetch upcoming reminders (next 7 days, not completed)
+    const { data: remindersData } = await supabase
+      .from('reminders')
+      .select('*')
+      .eq('user_id', profile.id)
+      .eq('is_completed', false)
+      .gte('reminder_date', format(today, 'yyyy-MM-dd'))
+      .lte('reminder_date', format(nextWeek, 'yyyy-MM-dd'))
+      .order('reminder_date');
+
+    if (remindersData) setReminders(remindersData);
+
+    // Fetch upcoming holidays (next 7 days)
+    const { data: holidaysData } = await supabase
+      .from('holidays')
+      .select('*')
+      .eq('user_id', profile.id)
+      .gte('date', format(today, 'yyyy-MM-dd'))
+      .lte('date', format(nextWeek, 'yyyy-MM-dd'))
+      .order('date');
+
+    if (holidaysData) setHolidays(holidaysData);
+  };
+
+  const fetchNotifications = async () => {
+    if (!profile?.id) return;
+
+    const { data } = await supabase
+      .from('notifications')
+      .select('*')
+      .eq('user_id', profile.id)
+      .eq('read', false)
+      .order('created_at', { ascending: false })
+      .limit(5);
+
+    if (data) setNotifications(data);
+  };
+
+  const markNotificationRead = async (id: string) => {
+    await supabase.from('notifications').update({ read: true }).eq('id', id);
+    setNotifications(notifications.filter(n => n.id !== id));
+  };
+
+  const getDateLabel = (dateStr: string) => {
+    const date = parseISO(dateStr);
+    if (isToday(date)) return 'Today';
+    if (isTomorrow(date)) return 'Tomorrow';
+    return format(date, 'EEE, MMM d');
+  };
+
   const copyClassCode = (code: string) => {
     navigator.clipboard.writeText(code);
     setCopiedCode(code);
@@ -133,6 +225,114 @@ export default function Dashboard() {
               : 'View your classes and upcoming work'}
           </p>
         </div>
+
+        {/* Notifications & Reminders Section */}
+        {(notifications.length > 0 || reminders.length > 0 || holidays.length > 0) && (
+          <div className="grid md:grid-cols-2 gap-6 mb-8">
+            {/* Notifications Card */}
+            {notifications.length > 0 && (
+              <Card className="border-2 border-primary/20 bg-primary/5">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <Bell className="w-5 h-5 text-primary" />
+                    Notifications
+                    <Badge variant="secondary" className="ml-auto">{notifications.length}</Badge>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  {notifications.map((notif) => (
+                    <div
+                      key={notif.id}
+                      className="flex items-start justify-between p-3 bg-background rounded-lg border"
+                    >
+                      <div className="flex-1">
+                        <p className="font-medium text-sm">{notif.title}</p>
+                        <p className="text-xs text-muted-foreground line-clamp-1">{notif.message}</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {notif.link && (
+                          <Link to={notif.link}>
+                            <Button variant="ghost" size="icon" className="h-7 w-7">
+                              <ChevronRight className="h-4 w-4" />
+                            </Button>
+                          </Link>
+                        )}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 text-xs"
+                          onClick={() => markNotificationRead(notif.id)}
+                        >
+                          Dismiss
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Upcoming Reminders & Holidays Card */}
+            {(reminders.length > 0 || holidays.length > 0) && (
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <Clock className="w-5 h-5 text-primary" />
+                    Upcoming This Week
+                    <Link to="/calendar" className="ml-auto">
+                      <Button variant="ghost" size="sm" className="text-xs gap-1">
+                        View Calendar
+                        <ChevronRight className="h-3 w-3" />
+                      </Button>
+                    </Link>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  {/* Holidays */}
+                  {holidays.map((holiday) => (
+                    <div
+                      key={holiday.id}
+                      className="flex items-center gap-3 p-3 bg-destructive/10 rounded-lg"
+                    >
+                      <PartyPopper className="w-4 h-4 text-destructive" />
+                      <div className="flex-1">
+                        <p className="font-medium text-sm">{holiday.title}</p>
+                        <p className="text-xs text-muted-foreground">Holiday</p>
+                      </div>
+                      <Badge variant="outline" className="text-xs">
+                        {getDateLabel(holiday.date)}
+                      </Badge>
+                    </div>
+                  ))}
+
+                  {/* Reminders */}
+                  {reminders.map((reminder) => (
+                    <div
+                      key={reminder.id}
+                      className="flex items-center gap-3 p-3 bg-secondary/50 rounded-lg"
+                    >
+                      <Bell className="w-4 h-4 text-primary" />
+                      <div className="flex-1">
+                        <p className="font-medium text-sm">{reminder.title}</p>
+                        {reminder.reminder_time && (
+                          <p className="text-xs text-muted-foreground">
+                            at {reminder.reminder_time}
+                          </p>
+                        )}
+                      </div>
+                      <Badge 
+                        variant={isTomorrow(parseISO(reminder.reminder_date)) ? "default" : "outline"} 
+                        className="text-xs"
+                      >
+                        {getDateLabel(reminder.reminder_date)}
+                      </Badge>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        )}
 
         {loadingClasses ? (
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
