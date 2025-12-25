@@ -38,7 +38,7 @@ export const useVoiceCommands = () => {
       description: 'Navigate to dashboard',
     },
     navigate_notifications: {
-      action: () => navigateRef.current?.('/dashboard?tab=notifications'),
+      action: () => navigateRef.current?.('/notifications'),
       description: 'Go to notifications',
     },
     create_class: {
