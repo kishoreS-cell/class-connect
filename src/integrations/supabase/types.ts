@@ -62,6 +62,36 @@ export type Database = {
           },
         ]
       }
+      attendance: {
+        Row: {
+          class_id: string
+          created_at: string
+          date: string
+          id: string
+          marked_by: string
+          status: Database["public"]["Enums"]["attendance_status"]
+          student_id: string
+        }
+        Insert: {
+          class_id: string
+          created_at?: string
+          date?: string
+          id?: string
+          marked_by: string
+          status?: Database["public"]["Enums"]["attendance_status"]
+          student_id: string
+        }
+        Update: {
+          class_id?: string
+          created_at?: string
+          date?: string
+          id?: string
+          marked_by?: string
+          status?: Database["public"]["Enums"]["attendance_status"]
+          student_id?: string
+        }
+        Relationships: []
+      }
       call_sessions: {
         Row: {
           call_type: string
@@ -650,6 +680,7 @@ export type Database = {
       generate_class_code: { Args: never; Returns: string }
     }
     Enums: {
+      attendance_status: "present" | "absent" | "late"
       user_role: "student" | "teacher"
     }
     CompositeTypes: {
@@ -778,6 +809,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      attendance_status: ["present", "absent", "late"],
       user_role: ["student", "teacher"],
     },
   },
