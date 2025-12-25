@@ -45,8 +45,20 @@ export const useVoiceCommands = () => {
       action: () => navigateRef.current?.('/gpa-calculator'),
       description: 'Open GPA calculator',
     },
+    navigate_calendar: {
+      action: () => navigateRef.current?.('/calendar'),
+      description: 'Open calendar',
+    },
+    navigate_quiz: {
+      action: () => navigateRef.current?.('/quiz'),
+      description: 'Open quiz',
+    },
+    navigate_calculator: {
+      action: () => navigateRef.current?.('/calculator'),
+      description: 'Open calculator',
+    },
     create_class: {
-      action: () => navigateRef.current?.('/create-class'),
+      action: () => navigateRef.current?.('/class/new'),
       description: 'Create a new class',
     },
     join_class: {
@@ -54,7 +66,7 @@ export const useVoiceCommands = () => {
       description: 'Join a class',
     },
     go_home: {
-      action: () => navigateRef.current?.('/'),
+      action: () => navigateRef.current?.('/dashboard'),
       description: 'Go to home page',
     },
     sign_out: {
@@ -67,7 +79,7 @@ export const useVoiceCommands = () => {
       action: () => {
         toastRef.current?.({
           title: '🎤 Voice Commands',
-          description: 'Say: "Dashboard", "Notifications", "GPA Calculator", "Create class", "Join class"',
+          description: 'Say: "Calendar", "Quiz", "Calculator", "Dashboard", "Notifications", "GPA"',
           duration: 5000,
         });
       },
@@ -117,12 +129,14 @@ export const useVoiceCommands = () => {
     const lowerText = text.toLowerCase();
     
     const localCommands = [
-      { keywords: ['dashboard', 'go to dashboard', 'open dashboard'], command: 'navigate_dashboard' },
-      { keywords: ['notifications', 'go to notifications', 'open notifications', 'check notifications'], command: 'navigate_notifications' },
-      { keywords: ['gpa', 'cgpa', 'calculator', 'gpa calculator', 'calculate gpa'], command: 'navigate_gpa_calculator' },
+      { keywords: ['dashboard', 'go to dashboard', 'open dashboard', 'home', 'go home'], command: 'navigate_dashboard' },
+      { keywords: ['notifications', 'go to notifications', 'open notifications', 'check notifications', 'notification'], command: 'navigate_notifications' },
+      { keywords: ['gpa', 'cgpa', 'gpa calculator', 'calculate gpa', 'grade point'], command: 'navigate_gpa_calculator' },
+      { keywords: ['calendar', 'go to calendar', 'open calendar', 'calender', 'show calendar'], command: 'navigate_calendar' },
+      { keywords: ['quiz', 'go to quiz', 'open quiz', 'start quiz', 'play quiz', 'take quiz'], command: 'navigate_quiz' },
+      { keywords: ['calculator', 'go to calculator', 'open calculator', 'calc', 'calculate'], command: 'navigate_calculator' },
       { keywords: ['create class', 'new class', 'add class'], command: 'create_class' },
       { keywords: ['join class', 'enter class'], command: 'join_class' },
-      { keywords: ['go home', 'home', 'main page'], command: 'go_home' },
       { keywords: ['sign out', 'logout', 'log out'], command: 'sign_out' },
       { keywords: ['help', 'commands', 'what can'], command: 'help' },
     ];

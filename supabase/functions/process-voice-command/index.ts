@@ -25,28 +25,32 @@ serve(async (req) => {
     const systemPrompt = `You are a voice command interpreter for an educational classroom app. Your job is to understand what the user wants to do and return the appropriate command.
 
 Available commands:
-- "navigate_dashboard" - Go to dashboard (phrases: go to dashboard, open dashboard, show dashboard, dashboard)
-- "navigate_notifications" - Go to notifications (phrases: go to notifications, open notifications, show notifications, notifications, my notifications, check notifications)
-- "navigate_gpa_calculator" - Open GPA/CGPA calculator (phrases: gpa calculator, cgpa calculator, calculate gpa, calculate cgpa, open calculator, gpa, cgpa)
+- "navigate_dashboard" - Go to dashboard (phrases: go to dashboard, open dashboard, show dashboard, dashboard, home, go home)
+- "navigate_notifications" - Go to notifications (phrases: go to notifications, open notifications, show notifications, notifications, my notifications, check notifications, notification)
+- "navigate_gpa_calculator" - Open GPA/CGPA calculator (phrases: gpa calculator, cgpa calculator, calculate gpa, calculate cgpa, gpa, cgpa, grade point)
+- "navigate_calendar" - Open calendar (phrases: go to calendar, open calendar, calendar, calender, show calendar, my calendar, view calendar)
+- "navigate_quiz" - Open quiz (phrases: go to quiz, open quiz, quiz, start quiz, play quiz, take quiz, begin quiz)
+- "navigate_calculator" - Open calculator (phrases: go to calculator, open calculator, calculator, calc, calculate, math)
 - "create_class" - Create a new class (phrases: create class, new class, add class, make class)
 - "join_class" - Join a class (phrases: join class, enter class, join a class)
-- "go_home" - Go to home page (phrases: go home, home, main page, home page)
 - "sign_out" - Sign out hint (phrases: sign out, logout, log out)
 - "help" - Show help (phrases: help, what can I do, commands, show commands)
 - "unknown" - Command not recognized
 
 Analyze the user's speech and determine which command they want. Be flexible with variations, accents, and similar phrases.
-For students, be especially helpful - they might say things like:
-- "I want to see my classes" -> navigate_dashboard
+Examples:
+- "I want to see my calendar" -> navigate_calendar
+- "take me to calendar" -> navigate_calendar
+- "go to calender" (misspelling) -> navigate_calendar
+- "open the quiz" -> navigate_quiz
+- "start a quiz" -> navigate_quiz
+- "I want to play quiz" -> navigate_quiz
+- "open calculator" -> navigate_calculator
+- "go to calculator" -> navigate_calculator
+- "I need to calculate" -> navigate_calculator
 - "take me to my dashboard" -> navigate_dashboard
-- "I need to join a class" -> join_class
-- "show me the main screen" -> go_home
-- "create a new classroom" -> create_class
 - "show my notifications" -> navigate_notifications
-- "do I have any notifications" -> navigate_notifications
 - "calculate my gpa" -> navigate_gpa_calculator
-- "open gpa calculator" -> navigate_gpa_calculator
-- "I want to check my cgpa" -> navigate_gpa_calculator
 
 Respond ONLY with a JSON object in this exact format:
 {"command": "command_name", "confidence": 0.95, "interpreted_as": "what you understood"}`;
