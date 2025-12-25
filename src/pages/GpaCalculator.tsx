@@ -1,13 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
+import { supabase } from '@/integrations/supabase/client';
 import AppLayout from '@/components/layout/AppLayout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Trash2, Plus, Calculator, GraduationCap, ArrowLeft } from 'lucide-react';
+import { Trash2, Plus, Calculator, GraduationCap, ArrowLeft, Save, RefreshCw, History } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 interface Course {
@@ -23,6 +23,7 @@ interface Semester {
   courses: Course[];
   gpa: number;
   totalCredits: number;
+  dbId?: string;
 }
 
 const gradePoints: Record<string, number> = {
@@ -37,7 +38,7 @@ const gradePoints: Record<string, number> = {
 };
 
 const GpaCalculator = () => {
-  const { user, loading } = useAuth();
+  const { user, profile, loading } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -50,6 +51,70 @@ const GpaCalculator = () => {
       totalCredits: 0,
     },
   ]);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isLoadingData, setIsLoadingData] = useState(true);
+  const [hasHistory, setHasHistory] = useState(false);
+
+  useEffect(() => {
+    if (!loading && !user) {
+      navigate('/auth');
+    }
+  }, [user, loading, navigate]);
+
+  useEffect(() => {
+    if (profile?.id) {
+      loadSavedData();
+    }
+  }, [profile?.id]);
+
+  const loadSavedData = async () => {
+    if (!profile?.id) return;
+    
+    setIsLoadingData(true);
+    try {
+      const { data: records, error: recordsError } = await supabase
+        .from('gpa_records')
+        .select('*')
+        .eq('student_id', profile.id)
+        .order('semester_order', { ascending: true });
+
+      if (recordsError) throw recordsError;
+
+      if (records && records.length > 0) {
+        setHasHistory(true);
+        const loadedSemesters: Semester[] = [];
+
+        for (const record of records) {
+          const { data: courses, error: coursesError } = await supabase
+            .from('gpa_courses')
+            .select('*')
+            .eq('record_id', record.id);
+
+          if (coursesError) throw coursesError;
+
+          loadedSemesters.push({
+            id: record.id,
+            dbId: record.id,
+            name: record.semester_name,
+            gpa: parseFloat(record.gpa?.toString() || '0'),
+            totalCredits: record.total_credits,
+            courses: courses?.map(c => ({
+              id: c.id,
+              name: c.course_name,
+              credits: c.credits,
+              grade: c.grade,
+            })) || [{ id: Date.now().toString(), name: '', credits: 3, grade: 'O' }],
+          });
+        }
+
+        setSemesters(loadedSemesters);
+      }
+    } catch (error) {
+      console.error('Error loading GPA data:', error);
+    } finally {
+      setIsLoadingData(false);
+    }
+  };
 
   const addCourse = (semesterId: string) => {
     setSemesters(semesters.map(sem => {
@@ -164,9 +229,88 @@ const GpaCalculator = () => {
     return { cgpa: Math.round(cgpa * 100) / 100, totalCredits };
   };
 
+  const saveToDatabase = async () => {
+    if (!profile?.id) {
+      toast({
+        title: 'Not logged in',
+        description: 'Please log in to save your GPA records',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      // First, delete existing records for this student
+      const { error: deleteError } = await supabase
+        .from('gpa_records')
+        .delete()
+        .eq('student_id', profile.id);
+
+      if (deleteError) throw deleteError;
+
+      // Calculate GPAs before saving
+      const updatedSemesters = semesters.map(sem => {
+        const { gpa, totalCredits } = calculateGPA(sem.courses);
+        return { ...sem, gpa, totalCredits };
+      });
+
+      // Save each semester and its courses
+      for (let i = 0; i < updatedSemesters.length; i++) {
+        const sem = updatedSemesters[i];
+        
+        const { data: record, error: recordError } = await supabase
+          .from('gpa_records')
+          .insert({
+            student_id: profile.id,
+            semester_name: sem.name,
+            semester_order: i + 1,
+            gpa: sem.gpa,
+            total_credits: sem.totalCredits,
+          })
+          .select()
+          .single();
+
+        if (recordError) throw recordError;
+
+        // Save courses for this semester
+        const coursesToInsert = sem.courses.map(course => ({
+          record_id: record.id,
+          course_name: course.name || 'Unnamed Course',
+          credits: course.credits,
+          grade: course.grade,
+          grade_points: gradePoints[course.grade] || 0,
+        }));
+
+        const { error: coursesError } = await supabase
+          .from('gpa_courses')
+          .insert(coursesToInsert);
+
+        if (coursesError) throw coursesError;
+      }
+
+      setSemesters(updatedSemesters);
+      setHasHistory(true);
+
+      toast({
+        title: '✅ Saved!',
+        description: 'Your GPA records have been saved to your profile',
+      });
+    } catch (error) {
+      console.error('Error saving GPA data:', error);
+      toast({
+        title: 'Error saving',
+        description: 'Failed to save GPA records. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const { cgpa, totalCredits: overallCredits } = calculateCGPA();
 
-  if (loading) {
+  if (loading || isLoadingData) {
     return (
       <AppLayout>
         <div className="flex items-center justify-center h-64">
@@ -179,17 +323,25 @@ const GpaCalculator = () => {
   return (
     <AppLayout>
       <div className="max-w-4xl mx-auto">
-        <div className="flex items-center gap-4 mb-6">
-          <Button variant="ghost" size="icon" onClick={() => navigate('/dashboard')}>
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <div>
-            <h1 className="text-2xl font-bold flex items-center gap-2">
-              <Calculator className="h-6 w-6" />
-              GPA & CGPA Calculator
-            </h1>
-            <p className="text-muted-foreground">Calculate your semester GPA and cumulative CGPA</p>
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-4">
+            <Button variant="ghost" size="icon" onClick={() => navigate('/dashboard')}>
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            <div>
+              <h1 className="text-2xl font-bold flex items-center gap-2">
+                <Calculator className="h-6 w-6" />
+                GPA & CGPA Calculator
+              </h1>
+              <p className="text-muted-foreground">Calculate your semester GPA and cumulative CGPA</p>
+            </div>
           </div>
+          {hasHistory && (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <History className="h-4 w-4" />
+              <span>Data loaded from history</span>
+            </div>
+          )}
         </div>
 
         {/* CGPA Summary Card */}
@@ -209,10 +361,20 @@ const GpaCalculator = () => {
                 <p className="text-sm text-muted-foreground">Total Credits</p>
                 <p className="text-2xl font-semibold">{overallCredits}</p>
               </div>
-              <Button onClick={calculateAll} size="lg" className="gap-2">
-                <Calculator className="h-5 w-5" />
-                Calculate All
-              </Button>
+              <div className="flex gap-2">
+                <Button onClick={calculateAll} size="lg" variant="outline" className="gap-2">
+                  <Calculator className="h-5 w-5" />
+                  Calculate
+                </Button>
+                <Button onClick={saveToDatabase} size="lg" disabled={isSaving} className="gap-2">
+                  {isSaving ? (
+                    <RefreshCw className="h-5 w-5 animate-spin" />
+                  ) : (
+                    <Save className="h-5 w-5" />
+                  )}
+                  Save
+                </Button>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -236,6 +398,11 @@ const GpaCalculator = () => {
                     {semester.gpa > 0 && (
                       <div className="px-3 py-1 bg-primary/10 rounded-full">
                         <span className="text-sm font-medium">GPA: {semester.gpa.toFixed(2)}</span>
+                      </div>
+                    )}
+                    {semester.totalCredits > 0 && (
+                      <div className="px-3 py-1 bg-muted rounded-full">
+                        <span className="text-sm text-muted-foreground">{semester.totalCredits} credits</span>
                       </div>
                     )}
                   </div>
@@ -289,7 +456,7 @@ const GpaCalculator = () => {
                           <SelectContent>
                             {Object.keys(gradePoints).map((grade) => (
                               <SelectItem key={grade} value={grade}>
-                                {grade} ({gradePoints[grade].toFixed(1)})
+                                {grade} ({gradePoints[grade]})
                               </SelectItem>
                             ))}
                           </SelectContent>
