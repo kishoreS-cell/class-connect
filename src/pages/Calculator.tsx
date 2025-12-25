@@ -1,9 +1,8 @@
 import { useState } from "react";
-import { Helmet } from "react-helmet";
 import AppLayout from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Delete, Divide, Equal, Minus, Plus, X } from "lucide-react";
+import { Divide, Equal, Minus, Plus, X } from "lucide-react";
 
 const Calculator = () => {
   const [display, setDisplay] = useState("0");
@@ -114,11 +113,6 @@ const Calculator = () => {
 
   return (
     <AppLayout>
-      <Helmet>
-        <title>Calculator | EduConnect</title>
-        <meta name="description" content="Basic calculator for quick calculations" />
-      </Helmet>
-
       <div className="max-w-md mx-auto">
         <Card className="shadow-xl border-2">
           <CardHeader className="pb-2">
