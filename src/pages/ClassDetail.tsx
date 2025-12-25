@@ -4,8 +4,10 @@ import { useAuth } from '@/lib/auth';
 import AppLayout from '@/components/layout/AppLayout';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, BookOpen, FileText, Users, Copy, CheckCircle } from 'lucide-react';
+import { ArrowLeft, BookOpen, FileText, Users, Copy, CheckCircle, MessageCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { ChatDialog } from '@/components/ChatDialog';
+import { VideoCallDialog } from '@/components/VideoCallDialog';
 
 interface ClassData {
   id: string;
@@ -33,6 +35,12 @@ export default function ClassDetail() {
   const [members, setMembers] = useState<any[]>([]);
   const [notes, setNotes] = useState<any[]>([]);
   const [assignments, setAssignments] = useState<any[]>([]);
+  
+  // Chat and call state
+  const [chatOpen, setChatOpen] = useState(false);
+  const [callOpen, setCallOpen] = useState(false);
+  const [selectedMember, setSelectedMember] = useState<{ id: string; name: string } | null>(null);
+  const [callType, setCallType] = useState<'audio' | 'video'>('video');
 
   useEffect(() => {
     if (!id || !profile) return;
@@ -102,6 +110,17 @@ export default function ClassDetail() {
       toast({ title: 'Copied!', description: 'Class code copied to clipboard' });
       setTimeout(() => setCopied(false), 2000);
     }
+  };
+
+  const openChat = (memberId: string, memberName: string) => {
+    setSelectedMember({ id: memberId, name: memberName });
+    setChatOpen(true);
+  };
+
+  const startCall = (type: 'audio' | 'video') => {
+    setCallType(type);
+    setChatOpen(false);
+    setCallOpen(true);
   };
 
   if (authLoading || loading) {
@@ -248,36 +267,99 @@ export default function ClassDetail() {
 
           {activeTab === 'members' && (
             <div className="space-y-3">
-              {/* Teacher */}
-              <div className="bg-card border border-border rounded-xl p-4 flex items-center gap-4">
-                <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center">
-                  <span className="text-primary font-semibold">
-                    {classData.teacher?.full_name?.charAt(0).toUpperCase()}
-                  </span>
+              {/* Teacher - shown for students */}
+              {!isTeacher && (
+                <div className="bg-card border border-border rounded-xl p-4 flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center">
+                      <span className="text-primary font-semibold">
+                        {classData.teacher?.full_name?.charAt(0).toUpperCase()}
+                      </span>
+                    </div>
+                    <div>
+                      <p className="font-medium text-foreground">{classData.teacher?.full_name}</p>
+                      <p className="text-xs text-primary">Teacher</p>
+                    </div>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => openChat(classData.teacher_id, classData.teacher?.full_name || 'Teacher')}
+                    className="gap-2"
+                  >
+                    <MessageCircle className="h-4 w-4" />
+                    Chat
+                  </Button>
                 </div>
-                <div>
-                  <p className="font-medium text-foreground">{classData.teacher?.full_name}</p>
-                  <p className="text-xs text-primary">Teacher</p>
-                </div>
-              </div>
-              
-              {/* Students */}
-              {members.map((member) => (
-                <div key={member.id} className="bg-card border border-border rounded-xl p-4 flex items-center gap-4">
-                  <div className="w-10 h-10 rounded-full bg-sage flex items-center justify-center">
-                    <span className="text-secondary-foreground font-semibold">
-                      {member.student?.full_name?.charAt(0).toUpperCase()}
+              )}
+
+              {/* For teacher, show their own card without chat button */}
+              {isTeacher && (
+                <div className="bg-card border border-border rounded-xl p-4 flex items-center gap-4">
+                  <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center">
+                    <span className="text-primary font-semibold">
+                      {classData.teacher?.full_name?.charAt(0).toUpperCase()}
                     </span>
                   </div>
                   <div>
-                    <p className="font-medium text-foreground">{member.student?.full_name}</p>
-                    <p className="text-xs text-muted-foreground">Student</p>
+                    <p className="font-medium text-foreground">{classData.teacher?.full_name}</p>
+                    <p className="text-xs text-primary">Teacher (You)</p>
                   </div>
+                </div>
+              )}
+              
+              {/* Students */}
+              {members.map((member) => (
+                <div key={member.id} className="bg-card border border-border rounded-xl p-4 flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 rounded-full bg-sage flex items-center justify-center">
+                      <span className="text-secondary-foreground font-semibold">
+                        {member.student?.full_name?.charAt(0).toUpperCase()}
+                      </span>
+                    </div>
+                    <div>
+                      <p className="font-medium text-foreground">{member.student?.full_name}</p>
+                      <p className="text-xs text-muted-foreground">Student</p>
+                    </div>
+                  </div>
+                  {member.student_id !== profile?.id && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => openChat(member.student_id, member.student?.full_name || 'Student')}
+                      className="gap-2"
+                    >
+                      <MessageCircle className="h-4 w-4" />
+                      Chat
+                    </Button>
+                  )}
                 </div>
               ))}
             </div>
           )}
         </div>
+
+        {/* Chat Dialog */}
+        {selectedMember && classData && (
+          <ChatDialog
+            open={chatOpen}
+            onOpenChange={setChatOpen}
+            recipientId={selectedMember.id}
+            recipientName={selectedMember.name}
+            classId={classData.id}
+            onStartCall={startCall}
+          />
+        )}
+
+        {/* Video Call Dialog */}
+        {selectedMember && (
+          <VideoCallDialog
+            open={callOpen}
+            onOpenChange={setCallOpen}
+            recipientName={selectedMember.name}
+            callType={callType}
+          />
+        )}
       </div>
     </AppLayout>
   );
