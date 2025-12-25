@@ -26,8 +26,10 @@ import {
   Save,
   ClipboardList,
   Newspaper,
-  RefreshCw
+  RefreshCw,
+  GraduationCap
 } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { format, parseISO, isToday, isTomorrow, addDays, isBefore } from 'date-fns';
 
@@ -96,6 +98,18 @@ interface NewsItem {
   category: string;
 }
 
+interface SyllabusStrategy {
+  id: string;
+  class_id: string;
+  teacher_id: string;
+  title: string;
+  content: string;
+  date: string;
+  created_at: string;
+  class_name?: string;
+  teacher_name?: string;
+}
+
 export default function Dashboard() {
   const { user, profile, loading } = useAuth();
   const [classes, setClasses] = useState<ClassData[]>([]);
@@ -113,6 +127,13 @@ export default function Dashboard() {
   const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
   const [news, setNews] = useState<NewsItem[]>([]);
   const [loadingNews, setLoadingNews] = useState(false);
+  const [syllabusStrategies, setSyllabusStrategies] = useState<SyllabusStrategy[]>([]);
+  const [showStrategyForm, setShowStrategyForm] = useState(false);
+  const [editingStrategy, setEditingStrategy] = useState<SyllabusStrategy | null>(null);
+  const [strategyTitle, setStrategyTitle] = useState('');
+  const [strategyContent, setStrategyContent] = useState('');
+  const [strategyClassId, setStrategyClassId] = useState('');
+  const [savingStrategy, setSavingStrategy] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -122,6 +143,7 @@ export default function Dashboard() {
       fetchNotifications();
       fetchAttendance();
       fetchNews();
+      fetchSyllabusStrategies();
       if (profile.role === 'student') {
         fetchStudentNotes();
       }
@@ -301,6 +323,128 @@ export default function Dashboard() {
     } finally {
       setLoadingNews(false);
     }
+  };
+
+  const fetchSyllabusStrategies = async () => {
+    if (!profile?.id) return;
+
+    const today = new Date();
+    const lastWeek = addDays(today, -7);
+
+    // Get class IDs based on role
+    let classIds: string[] = [];
+    
+    if (profile.role === 'teacher') {
+      const { data: teacherClasses } = await supabase
+        .from('classes')
+        .select('id, name')
+        .eq('teacher_id', profile.id);
+      
+      if (teacherClasses) {
+        classIds = teacherClasses.map(c => c.id);
+      }
+    } else {
+      const { data: memberClasses } = await supabase
+        .from('class_members')
+        .select('class_id')
+        .eq('student_id', profile.id);
+      
+      if (memberClasses) {
+        classIds = memberClasses.map((m: any) => m.class_id);
+      }
+    }
+
+    if (classIds.length === 0) return;
+
+    const { data: strategies } = await supabase
+      .from('syllabus_strategies')
+      .select(`
+        *,
+        classes(name),
+        teacher:profiles!syllabus_strategies_teacher_id_fkey(full_name)
+      `)
+      .in('class_id', classIds)
+      .gte('date', format(lastWeek, 'yyyy-MM-dd'))
+      .order('date', { ascending: false })
+      .limit(10);
+
+    if (strategies) {
+      const formattedStrategies = strategies.map((s: any) => ({
+        ...s,
+        class_name: s.classes?.name,
+        teacher_name: s.teacher?.full_name
+      }));
+      setSyllabusStrategies(formattedStrategies);
+    }
+  };
+
+  const saveStrategy = async () => {
+    if (!profile?.id || !strategyTitle.trim() || !strategyContent.trim() || !strategyClassId) return;
+
+    setSavingStrategy(true);
+    try {
+      if (editingStrategy) {
+        const { error } = await supabase
+          .from('syllabus_strategies')
+          .update({ 
+            title: strategyTitle.trim(), 
+            content: strategyContent.trim(),
+            class_id: strategyClassId
+          })
+          .eq('id', editingStrategy.id);
+
+        if (error) throw error;
+        toast({ title: 'Strategy updated' });
+      } else {
+        const { error } = await supabase
+          .from('syllabus_strategies')
+          .insert({ 
+            teacher_id: profile.id, 
+            title: strategyTitle.trim(), 
+            content: strategyContent.trim(),
+            class_id: strategyClassId
+          });
+
+        if (error) throw error;
+        toast({ title: 'Strategy added' });
+      }
+
+      resetStrategyForm();
+      fetchSyllabusStrategies();
+    } catch (error) {
+      console.error('Error saving strategy:', error);
+      toast({ title: 'Error', description: 'Failed to save strategy', variant: 'destructive' });
+    } finally {
+      setSavingStrategy(false);
+    }
+  };
+
+  const deleteStrategy = async (id: string) => {
+    try {
+      const { error } = await supabase.from('syllabus_strategies').delete().eq('id', id);
+      if (error) throw error;
+
+      setSyllabusStrategies(syllabusStrategies.filter(s => s.id !== id));
+      toast({ title: 'Strategy deleted' });
+    } catch (error) {
+      toast({ title: 'Error', description: 'Failed to delete strategy', variant: 'destructive' });
+    }
+  };
+
+  const startEditStrategy = (strategy: SyllabusStrategy) => {
+    setEditingStrategy(strategy);
+    setStrategyTitle(strategy.title);
+    setStrategyContent(strategy.content);
+    setStrategyClassId(strategy.class_id);
+    setShowStrategyForm(true);
+  };
+
+  const resetStrategyForm = () => {
+    setShowStrategyForm(false);
+    setEditingStrategy(null);
+    setStrategyTitle('');
+    setStrategyContent('');
+    setStrategyClassId('');
   };
 
   const fetchStudentNotes = async () => {
@@ -691,6 +835,127 @@ export default function Dashboard() {
             </CardContent>
           </Card>
         )}
+
+        {/* Daily Syllabus Strategy Section */}
+        <Card className="mb-8">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <GraduationCap className="w-5 h-5 text-primary" />
+              Daily Syllabus Strategy
+              {profile?.role === 'teacher' && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="ml-auto gap-1"
+                  onClick={() => setShowStrategyForm(true)}
+                >
+                  <Plus className="h-4 w-4" />
+                  Add Strategy
+                </Button>
+              )}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {showStrategyForm && profile?.role === 'teacher' && (
+              <div className="mb-4 p-4 border rounded-lg bg-muted/30 space-y-3">
+                <Select value={strategyClassId} onValueChange={setStrategyClassId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select class" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {classes.map((cls) => (
+                      <SelectItem key={cls.id} value={cls.id}>
+                        {cls.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Input
+                  placeholder="Strategy title (e.g., Today's Focus: Chapter 5)"
+                  value={strategyTitle}
+                  onChange={(e) => setStrategyTitle(e.target.value)}
+                />
+                <Textarea
+                  placeholder="Describe today's syllabus completion plan..."
+                  value={strategyContent}
+                  onChange={(e) => setStrategyContent(e.target.value)}
+                  rows={4}
+                />
+                <div className="flex justify-end gap-2">
+                  <Button variant="ghost" size="sm" onClick={resetStrategyForm}>
+                    <X className="h-4 w-4 mr-1" />
+                    Cancel
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={saveStrategy}
+                    disabled={savingStrategy || !strategyTitle.trim() || !strategyContent.trim() || !strategyClassId}
+                  >
+                    <Save className="h-4 w-4 mr-1" />
+                    {savingStrategy ? 'Saving...' : editingStrategy ? 'Update' : 'Save'}
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {syllabusStrategies.length === 0 && !showStrategyForm ? (
+              <p className="text-sm text-muted-foreground text-center py-4">
+                {profile?.role === 'teacher' 
+                  ? 'No strategies yet. Click "Add Strategy" to share your daily plan.'
+                  : 'No syllabus strategies shared by your teachers yet.'}
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {syllabusStrategies.map((strategy) => (
+                  <div
+                    key={strategy.id}
+                    className="p-4 border rounded-lg bg-background hover:bg-muted/30 transition-colors group"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <Badge variant="outline" className="text-xs">
+                            {strategy.class_name}
+                          </Badge>
+                          <span className="text-xs text-muted-foreground">
+                            {getDateLabel(strategy.date)}
+                          </span>
+                        </div>
+                        <h4 className="font-medium text-sm">{strategy.title}</h4>
+                        <p className="text-sm text-muted-foreground mt-1 whitespace-pre-wrap">
+                          {strategy.content}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-2">
+                          By {strategy.teacher_name}
+                        </p>
+                      </div>
+                      {profile?.role === 'teacher' && strategy.teacher_id === profile.id && (
+                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7"
+                            onClick={() => startEditStrategy(strategy)}
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-destructive hover:text-destructive"
+                            onClick={() => deleteStrategy(strategy.id)}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         {/* Daily News Section */}
         <Card className="mb-8">
