@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
 import AppLayout from '@/components/layout/AppLayout';
@@ -6,6 +6,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { 
   BookOpen, 
   Users, 
@@ -16,7 +18,12 @@ import {
   Bell,
   Clock,
   PartyPopper,
-  ChevronRight
+  ChevronRight,
+  StickyNote,
+  Pencil,
+  Trash2,
+  X,
+  Save
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { format, parseISO, isToday, isTomorrow, addDays, isBefore } from 'date-fns';
@@ -61,6 +68,14 @@ interface Notification {
   link: string | null;
 }
 
+interface StudentNote {
+  id: string;
+  title: string;
+  content: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export default function Dashboard() {
   const { user, profile, loading } = useAuth();
   const [classes, setClasses] = useState<ClassData[]>([]);
@@ -69,6 +84,12 @@ export default function Dashboard() {
   const [reminders, setReminders] = useState<Reminder[]>([]);
   const [holidays, setHolidays] = useState<Holiday[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [studentNotes, setStudentNotes] = useState<StudentNote[]>([]);
+  const [showNoteForm, setShowNoteForm] = useState(false);
+  const [editingNote, setEditingNote] = useState<StudentNote | null>(null);
+  const [noteTitle, setNoteTitle] = useState('');
+  const [noteContent, setNoteContent] = useState('');
+  const [savingNote, setSavingNote] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -76,6 +97,9 @@ export default function Dashboard() {
       fetchClasses();
       fetchRemindersAndHolidays();
       fetchNotifications();
+      if (profile.role === 'student') {
+        fetchStudentNotes();
+      }
     }
   }, [profile]);
 
@@ -171,9 +195,87 @@ export default function Dashboard() {
     if (data) setNotifications(data);
   };
 
+  const fetchStudentNotes = async () => {
+    if (!profile?.id) return;
+
+    const { data } = await supabase
+      .from('student_notes')
+      .select('*')
+      .eq('student_id', profile.id)
+      .order('updated_at', { ascending: false });
+
+    if (data) setStudentNotes(data);
+  };
+
   const markNotificationRead = async (id: string) => {
     await supabase.from('notifications').update({ read: true }).eq('id', id);
     setNotifications(notifications.filter(n => n.id !== id));
+  };
+
+  const saveNote = async () => {
+    if (!profile?.id || !noteTitle.trim()) return;
+
+    setSavingNote(true);
+    try {
+      if (editingNote) {
+        const { error } = await supabase
+          .from('student_notes')
+          .update({ title: noteTitle.trim(), content: noteContent.trim() || null })
+          .eq('id', editingNote.id);
+
+        if (error) throw error;
+
+        setStudentNotes(studentNotes.map(n => 
+          n.id === editingNote.id 
+            ? { ...n, title: noteTitle.trim(), content: noteContent.trim() || null, updated_at: new Date().toISOString() }
+            : n
+        ));
+        toast({ title: 'Note updated' });
+      } else {
+        const { data, error } = await supabase
+          .from('student_notes')
+          .insert({ student_id: profile.id, title: noteTitle.trim(), content: noteContent.trim() || null })
+          .select()
+          .single();
+
+        if (error) throw error;
+
+        setStudentNotes([data, ...studentNotes]);
+        toast({ title: 'Note created' });
+      }
+
+      resetNoteForm();
+    } catch (error) {
+      toast({ title: 'Error', description: 'Failed to save note', variant: 'destructive' });
+    } finally {
+      setSavingNote(false);
+    }
+  };
+
+  const deleteNote = async (id: string) => {
+    try {
+      const { error } = await supabase.from('student_notes').delete().eq('id', id);
+      if (error) throw error;
+
+      setStudentNotes(studentNotes.filter(n => n.id !== id));
+      toast({ title: 'Note deleted' });
+    } catch (error) {
+      toast({ title: 'Error', description: 'Failed to delete note', variant: 'destructive' });
+    }
+  };
+
+  const startEditNote = (note: StudentNote) => {
+    setEditingNote(note);
+    setNoteTitle(note.title);
+    setNoteContent(note.content || '');
+    setShowNoteForm(true);
+  };
+
+  const resetNoteForm = () => {
+    setShowNoteForm(false);
+    setEditingNote(null);
+    setNoteTitle('');
+    setNoteContent('');
   };
 
   const getDateLabel = (dateStr: string) => {
@@ -328,6 +430,103 @@ export default function Dashboard() {
                       </Badge>
                     </div>
                   ))}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Student Notes Section */}
+            {profile?.role === 'student' && (
+              <Card className="md:col-span-2">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <StickyNote className="w-5 h-5 text-primary" />
+                    My Notes
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="ml-auto gap-1"
+                      onClick={() => setShowNoteForm(true)}
+                    >
+                      <Plus className="h-4 w-4" />
+                      Add Note
+                    </Button>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {showNoteForm && (
+                    <div className="mb-4 p-4 border rounded-lg bg-muted/30 space-y-3">
+                      <Input
+                        placeholder="Note title"
+                        value={noteTitle}
+                        onChange={(e) => setNoteTitle(e.target.value)}
+                      />
+                      <Textarea
+                        placeholder="Write your note here..."
+                        value={noteContent}
+                        onChange={(e) => setNoteContent(e.target.value)}
+                        rows={4}
+                      />
+                      <div className="flex justify-end gap-2">
+                        <Button variant="ghost" size="sm" onClick={resetNoteForm}>
+                          <X className="h-4 w-4 mr-1" />
+                          Cancel
+                        </Button>
+                        <Button
+                          size="sm"
+                          onClick={saveNote}
+                          disabled={savingNote || !noteTitle.trim()}
+                        >
+                          <Save className="h-4 w-4 mr-1" />
+                          {savingNote ? 'Saving...' : editingNote ? 'Update' : 'Save'}
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
+                  {studentNotes.length === 0 && !showNoteForm ? (
+                    <p className="text-sm text-muted-foreground text-center py-4">
+                      No notes yet. Click "Add Note" to create your first note.
+                    </p>
+                  ) : (
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      {studentNotes.map((note) => (
+                        <div
+                          key={note.id}
+                          className="p-3 border rounded-lg bg-background hover:bg-muted/30 transition-colors group"
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <h4 className="font-medium text-sm line-clamp-1">{note.title}</h4>
+                            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7"
+                                onClick={() => startEditNote(note)}
+                              >
+                                <Pencil className="h-3.5 w-3.5" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 text-destructive hover:text-destructive"
+                                onClick={() => deleteNote(note.id)}
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            </div>
+                          </div>
+                          {note.content && (
+                            <p className="text-xs text-muted-foreground line-clamp-2 mt-1">
+                              {note.content}
+                            </p>
+                          )}
+                          <p className="text-xs text-muted-foreground mt-2">
+                            {format(parseISO(note.updated_at), 'MMM d, h:mm a')}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             )}
