@@ -2,3 +2,6 @@ project_id = "xgsaxnoibcwxejewqqsy"
 
 [functions.process-voice-command]
 verify_jwt = false
+
+[functions.get-daily-news]
+verify_jwt = false
