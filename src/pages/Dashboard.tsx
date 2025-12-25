@@ -23,7 +23,8 @@ import {
   Pencil,
   Trash2,
   X,
-  Save
+  Save,
+  ClipboardList
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { format, parseISO, isToday, isTomorrow, addDays, isBefore } from 'date-fns';
@@ -76,6 +77,16 @@ interface StudentNote {
   updated_at: string;
 }
 
+interface AttendanceRecord {
+  id: string;
+  class_id: string;
+  student_id: string;
+  date: string;
+  status: 'present' | 'absent' | 'late';
+  class_name?: string;
+  student_name?: string;
+}
+
 export default function Dashboard() {
   const { user, profile, loading } = useAuth();
   const [classes, setClasses] = useState<ClassData[]>([]);
@@ -90,6 +101,7 @@ export default function Dashboard() {
   const [noteTitle, setNoteTitle] = useState('');
   const [noteContent, setNoteContent] = useState('');
   const [savingNote, setSavingNote] = useState(false);
+  const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -97,6 +109,7 @@ export default function Dashboard() {
       fetchClasses();
       fetchRemindersAndHolidays();
       fetchNotifications();
+      fetchAttendance();
       if (profile.role === 'student') {
         fetchStudentNotes();
       }
@@ -193,6 +206,74 @@ export default function Dashboard() {
       .limit(5);
 
     if (data) setNotifications(data);
+  };
+
+  const fetchAttendance = async () => {
+    if (!profile?.id) return;
+
+    const today = new Date();
+    const lastWeek = addDays(today, -7);
+
+    if (profile.role === 'teacher') {
+      // Get classes taught by this teacher
+      const { data: teacherClasses } = await supabase
+        .from('classes')
+        .select('id, name')
+        .eq('teacher_id', profile.id);
+
+      if (teacherClasses && teacherClasses.length > 0) {
+        const classIds = teacherClasses.map(c => c.id);
+        const { data: attendance } = await supabase
+          .from('attendance')
+          .select('*')
+          .in('class_id', classIds)
+          .gte('date', format(lastWeek, 'yyyy-MM-dd'))
+          .order('date', { ascending: false })
+          .limit(10);
+
+        if (attendance && attendance.length > 0) {
+          // Get student names
+          const studentIds = [...new Set(attendance.map(a => a.student_id))];
+          const { data: profiles } = await supabase
+            .from('profiles')
+            .select('id, full_name')
+            .in('id', studentIds);
+
+          const records = attendance.map((a: any) => ({
+            ...a,
+            class_name: teacherClasses.find(c => c.id === a.class_id)?.name,
+            student_name: profiles?.find(p => p.id === a.student_id)?.full_name
+          }));
+          setAttendanceRecords(records);
+        }
+      }
+    } else {
+      // Student - get their attendance
+      const { data: memberClasses } = await supabase
+        .from('class_members')
+        .select('class_id, classes(name)')
+        .eq('student_id', profile.id);
+
+      if (memberClasses && memberClasses.length > 0) {
+        const classIds = memberClasses.map((m: any) => m.class_id);
+        const { data: attendance } = await supabase
+          .from('attendance')
+          .select('*')
+          .eq('student_id', profile.id)
+          .in('class_id', classIds)
+          .gte('date', format(lastWeek, 'yyyy-MM-dd'))
+          .order('date', { ascending: false })
+          .limit(10);
+
+        if (attendance) {
+          const records = attendance.map((a: any) => ({
+            ...a,
+            class_name: (memberClasses.find((m: any) => m.class_id === a.class_id) as any)?.classes?.name
+          }));
+          setAttendanceRecords(records);
+        }
+      }
+    }
   };
 
   const fetchStudentNotes = async () => {
@@ -531,6 +612,57 @@ export default function Dashboard() {
               </Card>
             )}
           </div>
+        )}
+
+        {/* Attendance Section */}
+        {attendanceRecords.length > 0 && (
+          <Card className="mb-8">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <ClipboardList className="w-5 h-5 text-primary" />
+                {profile?.role === 'teacher' ? 'Recent Attendance' : 'My Attendance'}
+                <Badge variant="secondary" className="ml-auto">Last 7 days</Badge>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                {attendanceRecords.map((record) => (
+                  <div
+                    key={record.id}
+                    className="flex items-center justify-between p-3 bg-muted/30 rounded-lg"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={`w-2 h-2 rounded-full ${
+                        record.status === 'present' ? 'bg-green-500' :
+                        record.status === 'absent' ? 'bg-red-500' : 'bg-yellow-500'
+                      }`} />
+                      <div>
+                        <p className="font-medium text-sm">
+                          {profile?.role === 'teacher' ? record.student_name : record.class_name}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {profile?.role === 'teacher' ? record.class_name : getDateLabel(record.date)}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {profile?.role === 'teacher' && (
+                        <span className="text-xs text-muted-foreground">
+                          {getDateLabel(record.date)}
+                        </span>
+                      )}
+                      <Badge 
+                        variant={record.status === 'present' ? 'default' : record.status === 'absent' ? 'destructive' : 'secondary'}
+                        className="text-xs capitalize"
+                      >
+                        {record.status}
+                      </Badge>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
         )}
 
         {loadingClasses ? (
