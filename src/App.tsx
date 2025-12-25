@@ -9,6 +9,7 @@ import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import CreateClass from "./pages/CreateClass";
 import JoinClass from "./pages/JoinClass";
+import ClassDetail from "./pages/ClassDetail";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -25,6 +26,7 @@ const App = () => (
             <Route path="/auth" element={<Auth />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/class/new" element={<CreateClass />} />
+            <Route path="/class/:id" element={<ClassDetail />} />
             <Route path="/join-class" element={<JoinClass />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
