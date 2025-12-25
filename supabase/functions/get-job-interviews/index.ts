@@ -31,17 +31,20 @@ Return a JSON array with exactly 10 job opportunities. Each item should have:
 - "id": a unique number 1-10
 - "company": company name (use realistic company names)
 - "role": job title/role needed
-- "location": city/location (mix of in-person and remote)
+- "location": city name only (e.g., "New York", "London", "Mumbai", "Tokyo", "Remote")
+- "country": country name (e.g., "USA", "UK", "India", "Japan")
 - "date": interview date in format "YYYY-MM-DD" (within next 2 weeks from today)
 - "time": interview time (e.g., "10:00 AM", "2:30 PM")
 - "type": one of "Full-time", "Part-time", "Internship", "Contract"
 - "category": one of "Teaching", "Technology", "Administration", "Research", "Entry-level"
+- "registrationLink": a realistic job application URL (use actual company career page URLs like "https://careers.google.com/jobs", "https://amazon.jobs", "https://www.microsoft.com/careers", etc.)
 
 Include a mix of:
 - Teaching positions for teachers
 - Tech roles for students (internships, entry-level)
 - Administrative roles
 - Research positions
+- Locations from different countries
 
 Make the opportunities feel current and realistic. Include well-known companies and educational institutions.
 

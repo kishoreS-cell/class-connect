@@ -29,7 +29,8 @@ import {
   RefreshCw,
   GraduationCap,
   Briefcase,
-  MapPin
+  MapPin,
+  ExternalLink
 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
@@ -117,10 +118,12 @@ interface JobInterview {
   company: string;
   role: string;
   location: string;
+  country: string;
   date: string;
   time: string;
   type: string;
   category: string;
+  registrationLink: string;
 }
 
 export default function Dashboard() {
@@ -149,6 +152,7 @@ export default function Dashboard() {
   const [savingStrategy, setSavingStrategy] = useState(false);
   const [jobInterviews, setJobInterviews] = useState<JobInterview[]>([]);
   const [loadingJobs, setLoadingJobs] = useState(false);
+  const [jobLocationFilter, setJobLocationFilter] = useState<string>('all');
   const { toast } = useToast();
 
   useEffect(() => {
@@ -1050,16 +1054,29 @@ export default function Dashboard() {
             <CardTitle className="text-lg flex items-center gap-2">
               <Briefcase className="w-5 h-5 text-primary" />
               Upcoming Job Interviews
-              <Button
-                variant="ghost"
-                size="sm"
-                className="ml-auto gap-1"
-                onClick={fetchJobInterviews}
-                disabled={loadingJobs}
-              >
-                <RefreshCw className={`h-4 w-4 ${loadingJobs ? 'animate-spin' : ''}`} />
-                Refresh
-              </Button>
+              <div className="ml-auto flex items-center gap-2">
+                <Select value={jobLocationFilter} onValueChange={setJobLocationFilter}>
+                  <SelectTrigger className="w-[140px] h-8 text-xs">
+                    <SelectValue placeholder="All Locations" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Locations</SelectItem>
+                    {[...new Set(jobInterviews.map(j => j.country))].filter(Boolean).map((country) => (
+                      <SelectItem key={country} value={country}>{country}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="gap-1"
+                  onClick={fetchJobInterviews}
+                  disabled={loadingJobs}
+                >
+                  <RefreshCw className={`h-4 w-4 ${loadingJobs ? 'animate-spin' : ''}`} />
+                  Refresh
+                </Button>
+              </div>
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -1075,7 +1092,9 @@ export default function Dashboard() {
               </p>
             ) : (
               <div className="grid gap-3 sm:grid-cols-2">
-                {jobInterviews.map((job) => (
+                {jobInterviews
+                  .filter(job => jobLocationFilter === 'all' || job.country === jobLocationFilter)
+                  .map((job) => (
                   <div
                     key={job.id}
                     className="p-4 border rounded-lg bg-background hover:bg-muted/30 transition-colors"
@@ -1092,7 +1111,7 @@ export default function Dashboard() {
                     <p className="text-sm text-foreground font-medium">{job.company}</p>
                     <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
                       <MapPin className="h-3 w-3" />
-                      {job.location}
+                      {job.location}, {job.country}
                     </div>
                     <div className="flex items-center gap-3 mt-2 text-xs">
                       <span className="flex items-center gap-1 text-muted-foreground">
@@ -1104,9 +1123,21 @@ export default function Dashboard() {
                         {job.time}
                       </span>
                     </div>
-                    <Badge variant="outline" className="text-xs mt-2">
-                      {job.category}
-                    </Badge>
+                    <div className="flex items-center justify-between mt-3">
+                      <Badge variant="outline" className="text-xs">
+                        {job.category}
+                      </Badge>
+                      <a
+                        href={job.registrationLink}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1 text-xs text-primary hover:underline"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <ExternalLink className="h-3 w-3" />
+                        Apply Now
+                      </a>
+                    </div>
                   </div>
                 ))}
               </div>
