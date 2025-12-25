@@ -251,6 +251,33 @@ export type Database = {
           },
         ]
       }
+      holidays: {
+        Row: {
+          created_at: string
+          date: string
+          description: string | null
+          id: string
+          title: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          date: string
+          description?: string | null
+          id?: string
+          title: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          date?: string
+          description?: string | null
+          id?: string
+          title?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       messages: {
         Row: {
           class_id: string
@@ -393,6 +420,39 @@ export type Database = {
           full_name?: string
           id?: string
           role?: Database["public"]["Enums"]["user_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
+      reminders: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          is_completed: boolean | null
+          reminder_date: string
+          reminder_time: string | null
+          title: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_completed?: boolean | null
+          reminder_date: string
+          reminder_time?: string | null
+          title: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_completed?: boolean | null
+          reminder_date?: string
+          reminder_time?: string | null
+          title?: string
           user_id?: string
         }
         Relationships: []
