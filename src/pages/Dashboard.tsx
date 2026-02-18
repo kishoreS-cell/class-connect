@@ -567,10 +567,15 @@ export default function Dashboard() {
   };
 
   const getDateLabel = (dateStr: string) => {
-    const date = parseISO(dateStr);
-    if (isToday(date)) return 'Today';
-    if (isTomorrow(date)) return 'Tomorrow';
-    return format(date, 'EEE, MMM d');
+    try {
+      const date = parseISO(dateStr);
+      if (isNaN(date.getTime())) return dateStr;
+      if (isToday(date)) return 'Today';
+      if (isTomorrow(date)) return 'Tomorrow';
+      return format(date, 'EEE, MMM d');
+    } catch {
+      return dateStr || 'Unknown';
+    }
   };
 
   const copyClassCode = (code: string) => {
@@ -809,7 +814,7 @@ export default function Dashboard() {
                             </p>
                           )}
                           <p className="text-xs text-muted-foreground mt-2">
-                            {format(parseISO(note.updated_at), 'MMM d, h:mm a')}
+                            {(() => { try { const d = parseISO(note.updated_at); return isNaN(d.getTime()) ? note.updated_at : format(d, 'MMM d, h:mm a'); } catch { return 'Unknown'; } })()}
                           </p>
                         </div>
                       ))}
