@@ -1133,7 +1133,14 @@ export default function Dashboard() {
                     <div className="flex items-center gap-3 mt-2 text-xs">
                       <span className="flex items-center gap-1 text-muted-foreground">
                         <Calendar className="h-3 w-3" />
-                        {format(parseISO(job.date), 'MMM d, yyyy')}
+                        {(() => {
+                          try {
+                            const parsed = parseISO(job.date);
+                            return isNaN(parsed.getTime()) ? job.date : format(parsed, 'MMM d, yyyy');
+                          } catch {
+                            return job.date || 'TBD';
+                          }
+                        })()}
                       </span>
                       <span className="flex items-center gap-1 text-muted-foreground">
                         <Clock className="h-3 w-3" />
