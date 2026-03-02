@@ -21,7 +21,7 @@ serve(async (req) => {
     }
 
     const url = new URL(req.url);
-    const action = url.searchParams.get('action') || 'upload';
+    const action = url.searchParams.get('action') || (req.method === 'POST' ? 'upload' : 'status');
 
     if (action === 'status') {
       // Health check / status endpoint

@@ -378,11 +378,6 @@ export default function Dashboard() {
   const fetchAwsStatus = async () => {
     setAwsLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke('aws-s3-upload', {
-        body: null,
-        method: 'GET',
-      });
-      // Use query param approach
       const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
       const res = await fetch(
         `https://${projectId}.supabase.co/functions/v1/aws-s3-upload?action=status`,
