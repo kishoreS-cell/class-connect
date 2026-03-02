@@ -30,8 +30,15 @@ import {
   GraduationCap,
   Briefcase,
   MapPin,
-  ExternalLink
+  ExternalLink,
+  Cloud,
+  Upload,
+  FileText,
+  HardDrive,
+  CheckCircle2,
+  AlertCircle
 } from 'lucide-react';
+import { Progress } from '@/components/ui/progress';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { format, parseISO, isToday, isTomorrow, addDays, isBefore } from 'date-fns';
@@ -154,6 +161,12 @@ export default function Dashboard() {
   const [loadingJobs, setLoadingJobs] = useState(false);
   const [jobLocationFilter, setJobLocationFilter] = useState<string>('all');
   const [jobRoleFilter, setJobRoleFilter] = useState<string>('all');
+  const [awsStatus, setAwsStatus] = useState<any>(null);
+  const [awsFiles, setAwsFiles] = useState<any[]>([]);
+  const [awsLoading, setAwsLoading] = useState(false);
+  const [awsUploading, setAwsUploading] = useState(false);
+  const [awsUploadProgress, setAwsUploadProgress] = useState(0);
+  const awsFileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -165,6 +178,7 @@ export default function Dashboard() {
       fetchNews();
       fetchSyllabusStrategies();
       fetchJobInterviews();
+      fetchAwsStatus();
       if (profile.role === 'student') {
         fetchStudentNotes();
       }
@@ -359,6 +373,133 @@ export default function Dashboard() {
     } finally {
       setLoadingJobs(false);
     }
+  };
+
+  const fetchAwsStatus = async () => {
+    setAwsLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('aws-s3-upload', {
+        body: null,
+        method: 'GET',
+      });
+      // Use query param approach
+      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+      const res = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/aws-s3-upload?action=status`,
+        {
+          headers: {
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          },
+        }
+      );
+      const statusData = await res.json();
+      if (res.ok) {
+        setAwsStatus(statusData);
+        // Also fetch files
+        fetchAwsFiles();
+      }
+    } catch (error) {
+      console.error('Error fetching AWS status:', error);
+    } finally {
+      setAwsLoading(false);
+    }
+  };
+
+  const fetchAwsFiles = async () => {
+    try {
+      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+      const res = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/aws-s3-upload?action=list&prefix=uploads/`,
+        {
+          headers: {
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          },
+        }
+      );
+      const data = await res.json();
+      if (res.ok && data.files) {
+        setAwsFiles(data.files);
+      }
+    } catch (error) {
+      console.error('Error fetching AWS files:', error);
+    }
+  };
+
+  const uploadToAws = async (file: File) => {
+    setAwsUploading(true);
+    setAwsUploadProgress(0);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('folder', 'uploads');
+
+      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+      
+      // Simulate progress
+      const progressInterval = setInterval(() => {
+        setAwsUploadProgress(prev => Math.min(prev + 10, 90));
+      }, 200);
+
+      const res = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/aws-s3-upload?action=upload`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          },
+          body: formData,
+        }
+      );
+
+      clearInterval(progressInterval);
+      setAwsUploadProgress(100);
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+
+      toast({ title: 'Uploaded to AWS S3!', description: `${file.name} uploaded successfully` });
+      fetchAwsFiles();
+    } catch (error: any) {
+      console.error('AWS upload error:', error);
+      toast({ title: 'Upload Failed', description: error.message || 'Failed to upload to AWS S3', variant: 'destructive' });
+    } finally {
+      setAwsUploading(false);
+      setAwsUploadProgress(0);
+    }
+  };
+
+  const deleteFromAws = async (key: string) => {
+    try {
+      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+      const res = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/aws-s3-upload?action=delete`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ key }),
+        }
+      );
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      
+      setAwsFiles(awsFiles.filter(f => f.key !== key));
+      toast({ title: 'File deleted from AWS S3' });
+    } catch (error: any) {
+      toast({ title: 'Delete Failed', description: error.message, variant: 'destructive' });
+    }
+  };
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
 
   const fetchSyllabusStrategies = async () => {
@@ -1169,6 +1310,158 @@ export default function Dashboard() {
                     </div>
                   </div>
                 ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* AWS Cloud Storage Section */}
+        <Card className="mb-8 border-2 border-orange-500/20 bg-gradient-to-br from-orange-50/50 to-amber-50/30 dark:from-orange-950/20 dark:to-amber-950/10">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Cloud className="w-5 h-5 text-orange-500" />
+              <span>AWS Cloud Storage</span>
+              <Badge variant="outline" className="text-xs border-orange-500/30 text-orange-600 dark:text-orange-400">
+                Amazon S3
+              </Badge>
+              {awsStatus?.connected && (
+                <Badge className="ml-1 bg-green-500/10 text-green-600 border-green-500/30 text-xs" variant="outline">
+                  <CheckCircle2 className="h-3 w-3 mr-1" />
+                  Connected
+                </Badge>
+              )}
+              <div className="ml-auto flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-1 text-xs border-orange-500/30 hover:bg-orange-500/10"
+                  onClick={() => awsFileInputRef.current?.click()}
+                  disabled={awsUploading}
+                >
+                  <Upload className="h-3.5 w-3.5" />
+                  {awsUploading ? 'Uploading...' : 'Upload to S3'}
+                </Button>
+                <input
+                  ref={awsFileInputRef}
+                  type="file"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) uploadToAws(file);
+                    e.target.value = '';
+                  }}
+                />
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="gap-1"
+                  onClick={fetchAwsStatus}
+                  disabled={awsLoading}
+                >
+                  <RefreshCw className={`h-4 w-4 ${awsLoading ? 'animate-spin' : ''}`} />
+                </Button>
+              </div>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {awsUploading && (
+              <div className="mb-4 space-y-2">
+                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                  <span>Uploading to AWS S3...</span>
+                  <span>{awsUploadProgress}%</span>
+                </div>
+                <Progress value={awsUploadProgress} className="h-2" />
+              </div>
+            )}
+
+            {awsStatus ? (
+              <div className="space-y-4">
+                {/* Status Info */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <div className="p-3 bg-background rounded-lg border">
+                    <p className="text-xs text-muted-foreground">Provider</p>
+                    <p className="font-medium text-sm flex items-center gap-1">
+                      <Cloud className="h-3.5 w-3.5 text-orange-500" />
+                      {awsStatus.provider}
+                    </p>
+                  </div>
+                  <div className="p-3 bg-background rounded-lg border">
+                    <p className="text-xs text-muted-foreground">Service</p>
+                    <p className="font-medium text-sm">{awsStatus.service}</p>
+                  </div>
+                  <div className="p-3 bg-background rounded-lg border">
+                    <p className="text-xs text-muted-foreground">Bucket</p>
+                    <p className="font-medium text-sm truncate">{awsStatus.bucket}</p>
+                  </div>
+                  <div className="p-3 bg-background rounded-lg border">
+                    <p className="text-xs text-muted-foreground">Region</p>
+                    <p className="font-medium text-sm">{awsStatus.region}</p>
+                  </div>
+                </div>
+
+                {/* Files List */}
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <HardDrive className="h-4 w-4 text-muted-foreground" />
+                    <h4 className="font-medium text-sm">Stored Files ({awsFiles.length})</h4>
+                  </div>
+                  {awsFiles.length === 0 ? (
+                    <div className="text-center py-6 border rounded-lg bg-muted/20">
+                      <Upload className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+                      <p className="text-sm text-muted-foreground">No files uploaded yet</p>
+                      <p className="text-xs text-muted-foreground">Click "Upload to S3" to add files</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2 max-h-64 overflow-y-auto">
+                      {awsFiles.map((file, idx) => (
+                        <div
+                          key={idx}
+                          className="flex items-center justify-between p-3 bg-background rounded-lg border hover:bg-muted/30 transition-colors group"
+                        >
+                          <div className="flex items-center gap-3 flex-1 min-w-0">
+                            <FileText className="h-4 w-4 text-orange-500 shrink-0" />
+                            <div className="min-w-0">
+                              <p className="text-sm font-medium truncate">
+                                {file.key.split('/').pop()}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {formatFileSize(file.size)} • {(() => { try { return format(new Date(file.lastModified), 'MMM d, h:mm a'); } catch { return 'Unknown'; } })()}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <a
+                              href={file.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="p-1.5 hover:bg-muted rounded"
+                            >
+                              <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
+                            </a>
+                            <button
+                              onClick={() => deleteFromAws(file.key)}
+                              className="p-1.5 hover:bg-destructive/10 rounded"
+                            >
+                              <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : awsLoading ? (
+              <div className="space-y-3">
+                <div className="h-16 rounded-lg bg-muted animate-pulse" />
+                <div className="h-16 rounded-lg bg-muted animate-pulse" />
+              </div>
+            ) : (
+              <div className="text-center py-6">
+                <AlertCircle className="h-8 w-8 text-orange-500/50 mx-auto mb-2" />
+                <p className="text-sm text-muted-foreground">
+                  AWS S3 storage is being configured. Click refresh to check status.
+                </p>
               </div>
             )}
           </CardContent>
