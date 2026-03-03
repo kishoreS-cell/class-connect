@@ -276,9 +276,10 @@ export default function ClassDetail() {
 
       if (uploadError) throw uploadError;
 
-      const { data: { publicUrl } } = supabase.storage
+      const { data: signedUrlData } = await supabase.storage
         .from('class-files')
-        .getPublicUrl(filePath);
+        .createSignedUrl(filePath, 60 * 60 * 24 * 365); // 1 year
+      const fileUrl = signedUrlData?.signedUrl || filePath;
 
       const { data: newPaper, error: insertError } = await supabase
         .from('question_papers')
@@ -286,7 +287,7 @@ export default function ClassDetail() {
           title: paperTitle,
           subject: paperSubject,
           year: parseInt(paperYear),
-          file_url: publicUrl,
+          file_url: fileUrl,
           file_name: file.name,
           uploaded_by: profile.id,
           class_id: id,
@@ -354,16 +355,17 @@ export default function ClassDetail() {
 
       if (uploadError) throw uploadError;
 
-      const { data: { publicUrl } } = supabase.storage
+      const { data: signedUrlData } = await supabase.storage
         .from('class-files')
-        .getPublicUrl(filePath);
+        .createSignedUrl(filePath, 60 * 60 * 24 * 365);
+      const fileUrl = signedUrlData?.signedUrl || filePath;
 
       const { data: newVideo, error: insertError } = await supabase
         .from('recorded_videos')
         .insert({
           title: videoTitle,
           description: videoDescription || null,
-          video_url: publicUrl,
+          video_url: fileUrl,
           file_name: file.name,
           uploaded_by: profile.id,
           class_id: id,

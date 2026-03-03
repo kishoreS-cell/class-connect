@@ -382,13 +382,20 @@ export default function Dashboard() {
 
       if (error) throw error;
 
-      const files = (data || []).filter(f => f.name !== '.emptyFolderPlaceholder').map(f => ({
-        name: f.name,
-        size: f.metadata?.size || 0,
-        lastModified: f.created_at,
-        url: supabase.storage.from('cloud-storage').getPublicUrl(`uploads/${f.name}`).data.publicUrl,
-      }));
-      setCloudFiles(files);
+      const filesWithUrls = await Promise.all(
+        (data || []).filter(f => f.name !== '.emptyFolderPlaceholder').map(async f => {
+          const { data: signedUrlData } = await supabase.storage
+            .from('cloud-storage')
+            .createSignedUrl(`uploads/${f.name}`, 3600);
+          return {
+            name: f.name,
+            size: f.metadata?.size || 0,
+            lastModified: f.created_at,
+            url: signedUrlData?.signedUrl || '',
+          };
+        })
+      );
+      setCloudFiles(filesWithUrls);
     } catch (error) {
       console.error('Error fetching cloud files:', error);
     } finally {
