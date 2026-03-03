@@ -64,11 +64,26 @@ export default function Auth() {
         }
       }
     } catch (error: any) {
-      toast({
-        title: 'Error',
-        description: error.message || 'Something went wrong.',
-        variant: 'destructive',
-      });
+      const msg = error?.message || '';
+      if (msg.includes('Failed to fetch') || msg.includes('NetworkError')) {
+        // Clear stale tokens that may be causing background failures
+        Object.keys(localStorage).forEach(key => {
+          if (key.startsWith('sb-')) {
+            localStorage.removeItem(key);
+          }
+        });
+        toast({
+          title: 'Connection error',
+          description: 'Could not reach the server. Please refresh the page and try again.',
+          variant: 'destructive',
+        });
+      } else {
+        toast({
+          title: 'Error',
+          description: msg || 'Something went wrong.',
+          variant: 'destructive',
+        });
+      }
     } finally {
       setIsLoading(false);
     }
