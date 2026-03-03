@@ -42,13 +42,27 @@ export default function Auth() {
     return <Navigate to="/dashboard" replace />;
   }
 
-  const withTimeout = <T,>(promise: Promise<T>, ms: number): Promise<T> => {
-    return Promise.race([
-      promise,
-      new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error('Request timed out. Please refresh and try again.')), ms)
-      ),
-    ]);
+  const withRetry = async <T,>(fn: () => Promise<T>, retries = 2, delay = 1000): Promise<T> => {
+    for (let i = 0; i < retries; i++) {
+      try {
+        return await Promise.race([
+          fn(),
+          new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error('Request timed out. Please try again.')), 15000)
+          ),
+        ]);
+      } catch (err: any) {
+        const isNetworkError = err?.message?.includes('Failed to fetch') || 
+                               err?.message?.includes('NetworkError') || 
+                               err?.message?.includes('timed out');
+        if (isNetworkError && i < retries - 1) {
+          await new Promise(r => setTimeout(r, delay));
+          continue;
+        }
+        throw err;
+      }
+    }
+    throw new Error('Request failed after retries. Please refresh and try again.');
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -57,7 +71,7 @@ export default function Auth() {
 
     try {
       if (isSignUp) {
-        const { error } = await withTimeout(signUp(email, password, fullName, role), 15000);
+        const { error } = await withRetry(() => signUp(email, password, fullName, role));
         if (error) {
           if (error.message.includes('already registered')) {
             toast({
@@ -76,7 +90,7 @@ export default function Auth() {
           navigate('/dashboard');
         }
       } else {
-        const { error } = await withTimeout(signIn(email, password), 15000);
+        const { error } = await withRetry(() => signIn(email, password));
         if (error) {
           if (error.message.includes('Invalid login')) {
             toast({
