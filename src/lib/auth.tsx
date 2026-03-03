@@ -44,6 +44,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
+    // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
         setSession(session);
@@ -59,11 +60,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     );
 
+    // Then check for existing session
     supabase.auth.getSession().then(({ data: { session }, error }) => {
       if (error) {
-        // Clear stale session on refresh failure
-        console.warn('Session refresh failed, clearing stale session:', error.message);
-        supabase.auth.signOut();
+        // Clear stale/corrupted session data completely
+        console.warn('Session invalid, clearing:', error.message);
+        // Remove all supabase auth keys from localStorage
+        Object.keys(localStorage).forEach(key => {
+          if (key.startsWith('sb-')) {
+            localStorage.removeItem(key);
+          }
+        });
+        supabase.auth.signOut().catch(() => {});
         setSession(null);
         setUser(null);
         setProfile(null);
@@ -76,6 +84,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (session?.user) {
         fetchProfile(session.user.id).then(setProfile);
       }
+      setLoading(false);
+    }).catch(() => {
+      // Network error during initial session check - clear and continue
+      Object.keys(localStorage).forEach(key => {
+        if (key.startsWith('sb-')) {
+          localStorage.removeItem(key);
+        }
+      });
+      setSession(null);
+      setUser(null);
+      setProfile(null);
       setLoading(false);
     });
 
