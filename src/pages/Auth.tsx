@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
@@ -15,13 +15,41 @@ export default function Auth() {
   const [role, setRole] = useState<'student' | 'teacher'>('student');
   const [isLoading, setIsLoading] = useState(false);
   
-  const { user, signUp, signIn } = useAuth();
+  const { user, signUp, signIn, loading } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  // Clear any stale auth tokens when the Auth page mounts
+  useEffect(() => {
+    if (!user && !loading) {
+      Object.keys(localStorage).forEach(key => {
+        if (key.startsWith('sb-') && key.includes('auth-token')) {
+          localStorage.removeItem(key);
+        }
+      });
+    }
+  }, [user, loading]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-muted-foreground">Loading...</div>
+      </div>
+    );
+  }
 
   if (user) {
     return <Navigate to="/dashboard" replace />;
   }
+
+  const withTimeout = <T,>(promise: Promise<T>, ms: number): Promise<T> => {
+    return Promise.race([
+      promise,
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('Request timed out. Please refresh and try again.')), ms)
+      ),
+    ]);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -29,7 +57,7 @@ export default function Auth() {
 
     try {
       if (isSignUp) {
-        const { error } = await signUp(email, password, fullName, role);
+        const { error } = await withTimeout(signUp(email, password, fullName, role), 15000);
         if (error) {
           if (error.message.includes('already registered')) {
             toast({
@@ -48,7 +76,7 @@ export default function Auth() {
           navigate('/dashboard');
         }
       } else {
-        const { error } = await signIn(email, password);
+        const { error } = await withTimeout(signIn(email, password), 15000);
         if (error) {
           if (error.message.includes('Invalid login')) {
             toast({
