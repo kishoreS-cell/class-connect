@@ -725,6 +725,36 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      can_view_class: {
+        Args: { _class_id: string; _user_id: string }
+        Returns: boolean
+      }
+      can_view_profile: {
+        Args: { _target_profile_id: string; _viewer_user_id: string }
+        Returns: boolean
+      }
+      create_system_notification: {
+        Args: {
+          p_link?: string
+          p_message: string
+          p_title: string
+          p_type?: string
+          p_user_id: string
+        }
+        Returns: string
+      }
+      find_class_by_code: {
+        Args: { _code: string }
+        Returns: {
+          class_code: string
+          cover_color: string
+          created_at: string
+          description: string
+          id: string
+          name: string
+          teacher_id: string
+        }[]
+      }
       generate_class_code: { Args: never; Returns: string }
     }
     Enums: {

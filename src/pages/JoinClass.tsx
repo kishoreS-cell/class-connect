@@ -40,14 +40,11 @@ export default function JoinClass() {
     setIsSubmitting(true);
 
     try {
-      // Find the class by code
-      const { data: classData, error: classError } = await supabase
-        .from('classes')
-        .select('id, name')
-        .eq('class_code', classCode.toUpperCase().trim())
-        .single();
+      // Find the class by code using security definer function
+      const { data: classResults, error: classError } = await supabase
+        .rpc('find_class_by_code', { _code: classCode.toUpperCase().trim() });
 
-      if (classError || !classData) {
+      if (classError || !classResults || classResults.length === 0) {
         toast({
           title: 'Class not found',
           description: 'Please check the class code and try again.',
@@ -55,6 +52,8 @@ export default function JoinClass() {
         });
         return;
       }
+
+      const classData = classResults[0];
 
       // Check if already a member
       const { data: existingMember } = await supabase
