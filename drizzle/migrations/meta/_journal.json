@@ -1,0 +1,13 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1791471733562,
+      "tag": "0000_fix_class_members_recursion",
+      "breakpoints": true
+    }
+  ]
+}
